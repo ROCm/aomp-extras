@@ -1,0 +1,18 @@
+HOSTCALL_1
+{
+global:
+    hostcall_create_consumer;
+    hostcall_deregister_buffer;
+    hostcall_destroy_consumer;
+    hostcall_enable_debug;
+    hostcall_error_string;
+    hostcall_get_buffer_alignment;
+    hostcall_get_buffer_size;
+    hostcall_initialize_buffer;
+    hostcall_launch_consumer;
+    hostcall_on_error;
+    hostcall_register_buffer;
+    hostcall_register_service ;
+    local:
+    *;
+};
