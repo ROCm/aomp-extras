@@ -2,8 +2,9 @@
 ///  hostcall_stubs.cu
 ///
 
-/// #include <stdio.h>
 #include "hip/hip_runtime.h"
+#
+#ifdef USE_NEW_PRINTF
 #include "hostcall_service_id.h"
 #include "hostcall_stubs.h"
 
@@ -33,13 +34,7 @@ extern __device__ omptarget_device_environmentTy omptarget_device_environment;
 // host routine for printf_execute will free the buffer that was allocated
 // by printf_alloc.
 
-EXTERN char * hostcall_quick_alloc(uint bufsz); 
 EXTERN char * printf_alloc(uint bufsz) {
-/*	
-  if (__device__ char* quick_buffer = hostcall_quick_alloc(bufsz)) {
-     return quick_buffer;
-  }
- */
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
   arg0 = (ulong) bufsz;
 
@@ -74,35 +69,6 @@ EXTERN uint32_t __strlen_max(char *instr, uint32_t maxstrlen) {
        return (uint32_t) (i+1);
   return maxstrlen;
 }
-
-
-EXTERN char *hostcall_quick_alloc(uint bufsz) {
-#define SBHEADERSZ 8
-  // Update the 8 byte header in the actual services buffer.
-  char *ptr = (char *)omptarget_device_environment.services_buffer;
-  uint oldval  = ((uint *)ptr)[0];
-  uint maxsize = ((uint *)ptr)[1];
-  uint newval = atomicAdd((unsigned int *)ptr,bufsz);
-  for (;;) {
-    if (SBHEADERSZ + newval > maxsize)
-      return NULL;
-    if (atomicCAS((unsigned int *)ptr, oldval , newval))
-      break;
-  }
-  // Now update the used end size of the device_environment structure itself
-  // Having two avoids a device memcpy if there are no services.
-  // In the future we may want to get rid of the 8 byte service header
-  // and just update the device_environment structure.
-  uint end_oldval = omptarget_device_environment.services_buffer_end;
-  uint end_newval = atomicAdd(&(omptarget_device_environment.services_buffer_end),bufsz);
-  for (;;) {
-    if (atomicCAS(&(omptarget_device_environment.services_buffer_end), end_oldval ,end_newval))
-      break;
-  }
-  //  FIXME: This seems wrong 
-  return ptr + SBHEADERSZ + newval;
-}
-
 
 // -----------------------------------------------------------------------------
 //
@@ -143,3 +109,67 @@ EXTERN int vector_product_zeros(int N, int*A,  int*B, int*C) {
 
   return num_zeros;
 }
+
+#else
+
+//================================================================================
+//      OLD printf routines 
+//==============================================================================-=
+
+#include "../../../../openmp/libomptarget/plugins/hsa/src/hipsrv.h"
+#define EXTERN extern "C" __device__
+#include "../../../../openmp/libomptarget/src/device_env_struct.h"
+extern __device__ omptarget_device_environmentTy omptarget_device_environment;
+
+EXTERN int printf_execute(char * print_buffer, uint bufsz) { 
+  return 0;
+}
+
+EXTERN uint32_t __strlen_max(char *instr, uint32_t maxstrlen) {
+  for (uint32_t i = 0; i < maxstrlen ; i++)
+    if (instr[i] == (char) 0 )
+       return (uint32_t) (i+1);
+  return maxstrlen;
+}
+
+#define SBHEADERSZ 8
+EXTERN char *alloc_service_buffer(uint bufsz) {
+  // Update the 8 byte header in the actual services buffer.
+  char *ptr = (char *)omptarget_device_environment.services_buffer;
+  uint oldval  = ((uint *)ptr)[0];
+  uint maxsize = ((uint *)ptr)[1];
+  uint newval = atomicAdd((unsigned int *)ptr,bufsz);
+  for (;;) {
+    if (SBHEADERSZ + newval > maxsize)
+      return NULL;
+    if (atomicCAS((unsigned int *)ptr, oldval , newval))
+      break;
+  }
+  // Now update the used end size of the device_environment structure itself
+  // Having two avoids a device memcpy if there are no services.
+  // In the future we may want to get rid of the 8 byte service header
+  // and just update the device_environment structure.
+  uint end_oldval = omptarget_device_environment.services_buffer_end;
+  uint end_newval = atomicAdd(&(omptarget_device_environment.services_buffer_end),bufsz);
+  for (;;) {
+    if (atomicCAS(&(omptarget_device_environment.services_buffer_end), end_oldval ,end_newval))
+      break;
+  }
+  return ptr + SBHEADERSZ + newval;
+}
+
+EXTERN char *printf_alloc(uint data_and_strlen) {
+  size_t headsize = sizeof(hipsrv_service_header_t);
+  uint buffsize = (uint)headsize + data_and_strlen;
+  __device__ char *buffer = alloc_service_buffer(buffsize);
+  if (buffer) {
+    __device__ hipsrv_service_header_t *header =
+        (hipsrv_service_header_t *)buffer;
+    header->size = buffsize;
+    header->service_id = (hipsrv_service_id_t) HIPSRV_SERVICE_PRINTF;
+    header->device_hipsrv_id = (hipsrv_id_t) HIPSRV_ID;
+    return (buffer + headsize);
+  } else
+    return NULL;
+}
+#endif
