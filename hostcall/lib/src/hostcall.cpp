@@ -330,11 +330,11 @@ hostcall_consumer_t::register_buffer(void *b)
     auto buffer = reinterpret_cast<hostcall_buffer_t *>(b);
 
     auto &record = data->buffers[buffer];
-    std::cout << "registered buffer: " << std::hex << b
-                         << std::endl;
+    WHEN_DEBUG(std::cout << "registered buffer: " << std::hex << b
+                         << std::endl);
     record.discarded = false;
     buffer->doorbell = doorbell;
-    std::cout << "signal: " << buffer->doorbell.handle << std::endl;
+    WHEN_DEBUG(std::cout << "signal: " << buffer->doorbell.handle << std::endl);
 }
 
 hostcall_error_t hostcall_consumer_t::deregister_buffer(void *b) {
