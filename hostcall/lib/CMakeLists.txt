@@ -28,6 +28,7 @@ set(WITH_HSA 1)
 configure_file(../include/hostcall-config.h.in include/hostcall-config.h)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../atmi/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../include)
 
 file(GLOB SOURCES "src/*.cpp" "src/*.c" )

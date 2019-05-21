@@ -1,4 +1,5 @@
 #include "hostcall.h"
+#include "hostcall_service_id.h"
 
 #include <hsa/hsa.h>
 #include <assert.h>
@@ -187,6 +188,32 @@ static payload_t * get_payload(hostcall_buffer_t *buffer, ulong ptr) {
     return buffer->payloads + get_ptr_index(ptr, buffer->index_size);
 }
 
+// FIXME: Clean up this diagnostic and die properly
+void hostcall_version_check(uint device_vrm) {
+    uint device_version_release = device_vrm >> 8;
+    if (device_version_release != HOSTCALL_VERSION_RELEASE ) {
+      printf("ERROR Incompatible device and host release\n      Device release(%hd)\n      Host release(%d)\n",device_version_release, HOSTCALL_VERSION_RELEASE);
+      exit(1);
+    }
+    if (device_vrm > HOSTCALL_VRM) {
+      printf("ERROR Incompatible device and host version \n       Device version(%hd)\n      Host version(%d)\n",device_vrm, HOSTCALL_VERSION_RELEASE);
+      exit(2);
+    }
+    if (device_vrm < HOSTCALL_VRM) {
+      unsigned int host_ver = ((unsigned int) HOSTCALL_VRM) >> 16;
+      unsigned int host_rel = (((unsigned int) HOSTCALL_VRM) << 16) >>24  ;
+      unsigned int host_mod = (((unsigned int) HOSTCALL_VRM) << 24) >>24 ;
+      unsigned int dev_ver = ((unsigned int) device_vrm) >> 16;
+      unsigned int dev_rel = (((unsigned int) device_vrm) << 16) >>24  ;
+      unsigned int dev_mod = (((unsigned int) device_vrm) << 24) >>24 ;
+      printf("WARNING:  Device mod version < host mod version \n          Device version: %d.%d.%d\n          Host version:   %d.%d.%d\n",
+         dev_ver,dev_rel,dev_mod, host_ver,host_rel,host_mod);
+      printf("          Please consider upgrading hostcall on your host\n");
+    }
+}
+
+static bool hostcall_version_checked;
+
 void hostcall_consumer_t::process_packets(hostcall_buffer_t *buffer,
                                      uint64_t ready_stack) const {
     // This function is always called from consume_packets, which owns
@@ -212,7 +239,13 @@ void hostcall_consumer_t::process_packets(hostcall_buffer_t *buffer,
         auto header = get_header(buffer, iter);
         next = header->next;
 
-        auto service = header->service;
+        uint service = ((uint) header->service <<16 ) >> 16;
+        if (!hostcall_version_checked) {
+           uint device_vrm = ((uint) header->service >> 16 );
+	   hostcall_version_check(device_vrm);
+	   hostcall_version_checked = true;
+	}
+
         WHEN_DEBUG(std::cout << "packet service: " << (uint32_t)service
                              << std::endl);
 
@@ -260,9 +293,11 @@ hostcall_consumer_t::consume_packets()
     WHEN_DEBUG(std::cout << "launched consumer" << std::endl);
     uint64_t signal_value = SIGNAL_INIT;
     uint64_t timeout = 1024 * 1024;
+    hostcall_version_checked = false;
 
     while (true) {
         signal_value = wait_on_signal(doorbell, timeout, signal_value);
+
         if (signal_value == SIGNAL_DONE) {
             return;
         }
@@ -286,6 +321,7 @@ hostcall_consumer_t::consume_packets()
             }
             ++ii;
         }
+        signal_value = SIGNAL_INIT;
     }
 
     return;

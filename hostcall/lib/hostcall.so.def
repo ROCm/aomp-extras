@@ -13,6 +13,9 @@ global:
     hostcall_on_error;
     hostcall_register_buffer;
     hostcall_register_service ;
+    atmi_hostcall_assign_buffer;
+    atmi_hostcall_init;
+    atmi_hostcall_terminate;
     local:
     *;
 };

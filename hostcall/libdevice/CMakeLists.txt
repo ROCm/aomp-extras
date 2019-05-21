@@ -98,12 +98,6 @@ macro(collect_sources name dir)
 endmacro()
 
 macro(add_hip_bc_library name dir)
-  set(use_new_printf $ENV{USE_NEW_PRINTF})
-  if(use_new_printf)
-      set(dopt_use_new_printf "-DUSE_NEW_PRINTF")
-  else()
-      set(dopt_use_new_printf "" )
-  endif()
   set(cu_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++
     -x hip
     -std=c++11
@@ -113,7 +107,6 @@ macro(add_hip_bc_library name dir)
     -Wno-unused-value
     -O${optimization_level}
     --cuda-gpu-arch=${mcpu}
-    ${dopt_use_new_printf}
     -I${CMAKE_CURRENT_SOURCE_DIR}/../include
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include
@@ -208,6 +201,7 @@ foreach(mcpu ${mcpus})
 endforeach()
 
 install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/atmi_hostcall.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_service_id.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_stubs.h"
     DESTINATION include)

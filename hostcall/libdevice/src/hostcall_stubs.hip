@@ -3,21 +3,8 @@
 ///
 
 #include "hip/hip_runtime.h"
-#
-#ifdef USE_NEW_PRINTF
 #include "hostcall_service_id.h"
 #include "hostcall_stubs.h"
-
-struct omptarget_device_environmentTy {
-  int32_t debug_level;   // gets value of envvar LIBOMPTARGET_DEVICE_RTL_DEBUG
-                         // only useful for Debug build of deviceRTLs
-  int32_t num_devices;   // gets number of active offload devices
-  int32_t device_num;    // gets a value 0 to num_devices-1
-  int32_t services_buffer_size; // a buffer to proxy host services for GPU
-  int32_t services_buffer_end;  // atomically set when buffer updated
-  void *services_buffer;
-};
-extern __device__ omptarget_device_environmentTy omptarget_device_environment;
 
 // -----------------------------------------------------------------------------
 //
@@ -34,28 +21,23 @@ extern __device__ omptarget_device_environmentTy omptarget_device_environment;
 // host routine for printf_execute will free the buffer that was allocated
 // by printf_alloc.
 
+#define PACK_VERS(x) ((uint) HOSTCALL_VRM << 16) | ((uint) x)
+
 EXTERN char * printf_alloc(uint bufsz) {
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
   arg0 = (ulong) bufsz;
-
-  hostcall_result_t result = hostcall_invoke(HOSTCALL_SERVICE_MALLOC,
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_MALLOC),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-  int rc = (int) result.arg0;
-
-  arg0 = result.arg1;  // Temp LOOPTEST TO ANOTHER MALLOC SERVICE THAT DOES NOTHING
-  result = hostcall_invoke(HOSTCALL_SERVICE_MALLOC,
-    arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-
-  char* print_buffer = (char*) result.arg1;
-  return print_buffer;
+  __builtin_amdgcn_s_barrier();
+  return (char *) result.arg1;
 }
 
 EXTERN int printf_execute(char * print_buffer, uint bufsz) { 
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
-  arg0 = (ulong) print_buffer ;
-  arg1 = (ulong) bufsz;
-
-  hostcall_result_t result = hostcall_invoke(HOSTCALL_SERVICE_PRINTF,
+  __builtin_amdgcn_s_barrier();
+  arg0 = (ulong) bufsz;
+  arg1 = (ulong) print_buffer ;
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_PRINTF),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   return (int) result.arg0;
 }
@@ -78,8 +60,10 @@ EXTERN uint32_t __strlen_max(char *instr, uint32_t maxstrlen) {
 // This function calculates C = A*B and returns the number of zeros.
 // Naturally, one would typically do this type of operation on a GPU. 
 // But this is a demo  to illustrate the use of hostcall to run a service
-// on the host. This is the definition of vector_product_zeros that the 
-// host will execute:
+// on the host.  The host service for HOSTCALL_SERVICE_DEMO is in 
+//        aomp-extras/hostcall/lib/src/hostall_handlers.c 
+// After copying the vectors from the GPU it calls this routine
+// on the host. 
 //
 // int vector_product_zeros(int N, int*A, int*B, int*C) {
 //    int zeros = 0;   
@@ -91,85 +75,17 @@ EXTERN uint32_t __strlen_max(char *instr, uint32_t maxstrlen) {
 //    return zeros;
 // }
 //
+
 EXTERN int vector_product_zeros(int N, int*A,  int*B, int*C) {
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
-
   arg0 = (long) N;
   // Pass these pointers to the host for memcpy
   arg1 = (long) A;
   arg2 = (long) B;
   arg3 = (long) C;
-
-  hostcall_result_t result = hostcall_invoke(HOSTCALL_SERVICE_DEMO,
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_DEMO),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   int rc = (int) result.arg0;
   int num_zeros = (int) result.arg1;
-
-  // TODO: Verify rc == 0 and Verify result.arg2 == (long) C)
-
   return num_zeros;
 }
-
-#else
-
-//================================================================================
-//      OLD printf routines 
-//==============================================================================-=
-
-#include "../../../../openmp/libomptarget/plugins/hsa/src/hipsrv.h"
-#define EXTERN extern "C" __device__
-#include "../../../../openmp/libomptarget/src/device_env_struct.h"
-extern __device__ omptarget_device_environmentTy omptarget_device_environment;
-
-EXTERN int printf_execute(char * print_buffer, uint bufsz) { 
-  return 0;
-}
-
-EXTERN uint32_t __strlen_max(char *instr, uint32_t maxstrlen) {
-  for (uint32_t i = 0; i < maxstrlen ; i++)
-    if (instr[i] == (char) 0 )
-       return (uint32_t) (i+1);
-  return maxstrlen;
-}
-
-#define SBHEADERSZ 8
-EXTERN char *alloc_service_buffer(uint bufsz) {
-  // Update the 8 byte header in the actual services buffer.
-  char *ptr = (char *)omptarget_device_environment.services_buffer;
-  uint oldval  = ((uint *)ptr)[0];
-  uint maxsize = ((uint *)ptr)[1];
-  uint newval = atomicAdd((unsigned int *)ptr,bufsz);
-  for (;;) {
-    if (SBHEADERSZ + newval > maxsize)
-      return NULL;
-    if (atomicCAS((unsigned int *)ptr, oldval , newval))
-      break;
-  }
-  // Now update the used end size of the device_environment structure itself
-  // Having two avoids a device memcpy if there are no services.
-  // In the future we may want to get rid of the 8 byte service header
-  // and just update the device_environment structure.
-  uint end_oldval = omptarget_device_environment.services_buffer_end;
-  uint end_newval = atomicAdd(&(omptarget_device_environment.services_buffer_end),bufsz);
-  for (;;) {
-    if (atomicCAS(&(omptarget_device_environment.services_buffer_end), end_oldval ,end_newval))
-      break;
-  }
-  return ptr + SBHEADERSZ + newval;
-}
-
-EXTERN char *printf_alloc(uint data_and_strlen) {
-  size_t headsize = sizeof(hipsrv_service_header_t);
-  uint buffsize = (uint)headsize + data_and_strlen;
-  __device__ char *buffer = alloc_service_buffer(buffsize);
-  if (buffer) {
-    __device__ hipsrv_service_header_t *header =
-        (hipsrv_service_header_t *)buffer;
-    header->size = buffsize;
-    header->service_id = (hipsrv_service_id_t) HIPSRV_SERVICE_PRINTF;
-    header->device_hipsrv_id = (hipsrv_id_t) HIPSRV_ID;
-    return (buffer + headsize);
-  } else
-    return NULL;
-}
-#endif
