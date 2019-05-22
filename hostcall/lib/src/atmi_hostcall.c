@@ -34,15 +34,15 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include "hsa/hsa_ext_amd.h"
-#include "hostcall.h"
-#include "atmi_hostcall.h"
+#include "amd_hostcall.h"
+#include "hostcall_impl.h"
 #include "hostcall_service_id.h"
 #include "hostcall_internal.h"
 #include "atmi_runtime.h"
 
 static int atl_hcq_size() { return atl_hcq_count ;}
 
-atl_hcq_element_t * atl_hcq_push(hostcall_buffer_t * hcb, hostcall_consumer_t * consumer, 
+atl_hcq_element_t * atl_hcq_push(buffer_t * hcb, amd_hostcall_consumer_t * consumer, 
 		                 hsa_queue_t * hsa_q, uint32_t devid) {
   // FIXME , check rc of these mallocs
   if (atl_hcq_rear == NULL) {
@@ -95,48 +95,79 @@ static atl_hcq_element_t  * atl_hcq_find_by_hsa_q(hsa_queue_t * hsa_q) {
   return NULL;
 }
 
-static hostcall_buffer_t * atl_hcq_create_buffer(unsigned int num_packets,
+static buffer_t * atl_hcq_create_buffer(unsigned int num_packets,
 	 hsa_amd_memory_pool_t finegrain_pool) {
     if (num_packets == 0) {
 	printf("num_packets cannot be zero \n");
 	abort();
     }
-    size_t size  = hostcall_get_buffer_size(num_packets);
-    uint32_t align = hostcall_get_buffer_alignment();
+    size_t size  = amd_hostcall_get_buffer_size(num_packets);
+    uint32_t align = amd_hostcall_get_buffer_alignment();
     void *newbuffer = NULL;
     hsa_status_t err = hsa_amd_memory_pool_allocate(finegrain_pool, size+align, 0, &newbuffer);
     if (!newbuffer || (err != HSA_STATUS_SUCCESS) ) {
 	    printf("call to  hsa_amd_memory_pool_allocate failed \n");
 	    abort();
     }
-    if (hostcall_initialize_buffer(newbuffer, num_packets) != HOSTCALL_SUCCESS) {
-	    printf("call to  hostcall_initialize_buffer failed \n");
+    if (amd_hostcall_initialize_buffer(newbuffer, num_packets) != AMD_HOSTCALL_SUCCESS) {
+	    printf("call to  amd_hostcall_initialize_buffer failed \n");
 	    abort();
     }
     // printf("created hostcall buffer %p with %d packets \n", newbuffer, num_packets);
-    return (hostcall_buffer_t *) newbuffer;
+    return (buffer_t *) newbuffer;
 }
 
+// FIXME: Clean up this diagnostic and die properly
+hsa_status_t atmi_hostcall_version_check(unsigned int device_vrm) {
+    uint device_version_release = device_vrm >> 6;
+    if (device_version_release != HOSTCALL_VERSION_RELEASE ) {
+      printf("ERROR Incompatible device and host release\n      Device release(%hd)\n      Host release(%d)\n",device_version_release, HOSTCALL_VERSION_RELEASE);
+      return HSA_STATUS_ERROR;
+    }
+    if (device_vrm > HOSTCALL_VRM) {
+      printf("ERROR Incompatible device and host version \n       Device version(%hd)\n      Host version(%d)\n",device_vrm, HOSTCALL_VERSION_RELEASE);
+      return HSA_STATUS_ERROR;
+    }
+    if (device_vrm < HOSTCALL_VRM) {
+      unsigned int host_ver = ((unsigned int) HOSTCALL_VRM) >> 12;
+      unsigned int host_rel = (((unsigned int) HOSTCALL_VRM) << 20) >>26  ;
+      unsigned int host_mod = (((unsigned int) HOSTCALL_VRM) << 26) >>26 ;
+      unsigned int dev_ver = ((unsigned int) device_vrm) >> 12;
+      unsigned int dev_rel = (((unsigned int) device_vrm) << 20) >>26  ;
+      unsigned int dev_mod = (((unsigned int) device_vrm) << 26) >>26 ;
+      printf("WARNING:  Device mod version < host mod version \n          Device version: %d.%d.%d\n          Host version:   %d.%d.%d\n",
+         dev_ver,dev_rel,dev_mod, host_ver,host_rel,host_mod);
+      printf("          Please consider upgrading hostcall on your host\n");
+    }
+    return HSA_STATUS_SUCCESS;
+}
 
-void hostcall_register_all_handlers(hostcall_consumer_t * c, void * cbdata);
+void hostcall_register_all_handlers(amd_hostcall_consumer_t * c, void * cbdata);
 
 // These three external functions are called by atmi.
 // ATMI uses the header atmi_hostcall.h to reference these. 
 //
 unsigned long atmi_hostcall_assign_buffer(unsigned int minpackets, 
 		hsa_queue_t * this_Q, hsa_amd_memory_pool_t finegrain_pool,
-		uint32_t device_id) {
+		uint32_t device_id, int * is_new_buffer) {
+    *is_new_buffer =  0;
     atl_hcq_element_t * llq_elem ;
     llq_elem  = atl_hcq_find_by_hsa_q(this_Q);
     if (!llq_elem) {
        //  For now, we create one bufer and one consumer per ATMI hsa queue
-       hostcall_buffer_t * hcb  = atl_hcq_create_buffer(minpackets, finegrain_pool) ;
-       hostcall_consumer_t * c = hostcall_create_consumer();
-       hostcall_register_buffer(c,hcb);
+       buffer_t * hcb  = atl_hcq_create_buffer(minpackets, finegrain_pool) ;
+       *is_new_buffer =  1;
+       amd_hostcall_consumer_t * c ;
+       atl_hcq_element_t * front = atl_hcq_front;
+       if (front) 
+          c = front->consumer;
+       else 
+          c = amd_hostcall_create_consumer();
+       amd_hostcall_register_buffer(c,hcb);
        // create element of linked list hcq. This will also be the callback data
        llq_elem = atl_hcq_push( hcb , c, this_Q, device_id);
        hostcall_register_all_handlers(c, (void*) llq_elem);
-       hostcall_launch_consumer(c);
+       amd_hostcall_launch_consumer(c);
     }
     return (unsigned long) llq_elem->hcb;
 }
@@ -148,14 +179,15 @@ hsa_status_t atmi_hostcall_init() {
 }
 
 hsa_status_t atmi_hostcall_terminate() {
-   hostcall_consumer_t * c;
+   amd_hostcall_consumer_t * c;
    atl_hcq_element_t * this_front = atl_hcq_front;
    atl_hcq_element_t * last_front;
    int reverse_counter = atl_hcq_size();
    while (reverse_counter) {
-      c = this_front->consumer;
-      if (c)
-        hostcall_destroy_consumer(c);
+      if (this_front == atl_hcq_front) {
+         c = this_front->consumer;
+         amd_hostcall_destroy_consumer(c);
+      }
       hsa_memory_free(this_front->hcb);
       last_front = this_front;
       this_front = this_front->next_ptr;
@@ -166,3 +198,4 @@ hsa_status_t atmi_hostcall_terminate() {
    atl_hcq_front = atl_hcq_rear = NULL;
    return HSA_STATUS_SUCCESS;
 }
+

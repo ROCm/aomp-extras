@@ -9,7 +9,7 @@
 #include <thread>
 
 static uint64_t
-pop_free_stack(hostcall_buffer_t *buffer)
+pop_free_stack(buffer_t *buffer)
 {
     uint64_t *top = &buffer->free_stack;
     uint64_t F = __atomic_load_n(top, std::memory_order_acquire);
@@ -29,7 +29,7 @@ pop_free_stack(hostcall_buffer_t *buffer)
 }
 
 static void
-push_ready_stack(hostcall_buffer_t *buffer, uint64_t ptr)
+push_ready_stack(buffer_t *buffer, uint64_t ptr)
 {
     header_t *P = get_header(buffer, ptr);
     uint64_t *top = &buffer->ready_stack;
@@ -54,9 +54,9 @@ send_signal(signal_t signal)
 }
 
 static void
-print_error(hostcall_error_t error, void *ignored)
+print_error(amd_hostcall_error_t error, void *ignored)
 {
-    std::cout << hostcall_error_string(error) << std::endl;
+    std::cout << amd_hostcall_error_string(error) << std::endl;
 }
 
 static bool

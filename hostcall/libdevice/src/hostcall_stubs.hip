@@ -1,5 +1,5 @@
 ///
-///  hostcall_stubs.cu
+///  hostcall_stubs.hip
 ///
 
 #include "hip/hip_runtime.h"
@@ -20,8 +20,6 @@
 // printf_alloc is implemented as a hostcall stub. We assume that the 
 // host routine for printf_execute will free the buffer that was allocated
 // by printf_alloc.
-
-#define PACK_VERS(x) ((uint) HOSTCALL_VRM << 16) | ((uint) x)
 
 EXTERN char * printf_alloc(uint bufsz) {
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;

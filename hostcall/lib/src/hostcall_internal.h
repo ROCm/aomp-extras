@@ -31,8 +31,8 @@ SOFTWARE.
 
 typedef struct atl_hcq_element_s atl_hcq_element_t;
 struct atl_hcq_element_s {
-  hostcall_buffer_t *   hcb;
-  hostcall_consumer_t * consumer;
+  buffer_t *            hcb;
+  amd_hostcall_consumer_t *  consumer;
   hsa_queue_t *       	hsa_q;
   atl_hcq_element_t *   next_ptr;
   uint32_t              device_id;
@@ -45,5 +45,5 @@ int atl_hcq_count;
 
 /// This is called by the registered printf callback handler.  
 //  The source code for hostcall_printf is in hostcall_printf.c
-hostcall_error_t hostcall_printf(char *buf, size_t bufsz);
+amd_hostcall_error_t hostcall_printf(char *buf, size_t bufsz);
 

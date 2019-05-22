@@ -7,12 +7,11 @@
 void
 handler(void *ignored, uint32_t service, uint64_t *payload)
 {
-	printf("handler called\n");
     *payload = *payload + 1;
 }
 
 void
-producer_func(hostcall_buffer_t *hb, bool *status, uint64_t id,
+producer_func(buffer_t *hb, bool *status, uint64_t id,
               std::chrono::system_clock::time_point start, uint32_t *done)
 {
     // A feeble attempt at starting producers close to each other.
@@ -22,7 +21,7 @@ producer_func(hostcall_buffer_t *hb, bool *status, uint64_t id,
     auto F = pop_free_stack(hb);
     auto header = get_header(hb, F);
     header->control = set_ready_flag(header->control);
-    header->service = TEST_SERVICE;
+    header->service = PACK_VERS(TEST_SERVICE);
     header->activemask = 1;
 
     auto payload = get_payload(hb, F);
@@ -42,10 +41,12 @@ producer_func(hostcall_buffer_t *hb, bool *status, uint64_t id,
 int
 main(int argc, char *argv[])
 {
-    hsa_init();
     set_flags(argc, argv);
     if (debug_mode)
-        hostcall_enable_debug();
+        amd_hostcall_enable_debug();
+
+    if (hsa_init() != HSA_STATUS_SUCCESS)
+        return __LINE__;
 
     const int num_threads = 1000;
     const int num_packets = num_threads;
@@ -54,20 +55,17 @@ main(int argc, char *argv[])
     if (!unaligned_buffer)
         return __LINE__;
     auto buffer = realign_buffer(unaligned_buffer);
-    CHECK(hostcall_initialize_buffer(buffer, num_packets));
+    CHECK(amd_hostcall_initialize_buffer(buffer, num_packets));
 
-    printf("Calling creatre_consumer\n");
-    auto consumer = hostcall_create_consumer();
+    auto consumer = amd_hostcall_create_consumer();
     if (!consumer)
         return __LINE__;
 
-    printf("DONE Calling creatre_consumer\n");
-    hostcall_register_buffer(consumer, buffer);
-    hostcall_register_service(consumer, TEST_SERVICE, handler, nullptr);
-    printf("Calling Launch consumer \n");
-    hostcall_launch_consumer(consumer);
+    amd_hostcall_register_buffer(consumer, buffer);
+    amd_hostcall_register_service(consumer, TEST_SERVICE, handler, nullptr);
+    CHECK(amd_hostcall_launch_consumer(consumer));
 
-    auto hb = reinterpret_cast<hostcall_buffer_t *>(buffer);
+    auto hb = reinterpret_cast<buffer_t *>(buffer);
 
     bool status[num_threads];
     std::thread producers[num_threads];
@@ -88,7 +86,7 @@ main(int argc, char *argv[])
         producers[i].join();
     }
 
-    hostcall_destroy_consumer(consumer);
+    amd_hostcall_destroy_consumer(consumer);
     free(buffer);
 
     for (int i = 0; i != num_threads; ++i) {

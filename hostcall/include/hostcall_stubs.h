@@ -5,7 +5,7 @@
 ///
 EXTERN int printf( const char * , ...);
 EXTERN char *  printf_alloc(uint bufsz);
-EXTERN int     printf_execute(char * bufptr);
+EXTERN int     printf_execute(char * bufptr, uint bufsz);
 EXTERN uint32_t __strlen_max(char*instr, uint32_t maxstrlen);
 EXTERN int     vector_product_zeros(int N, int*A, int*B, int*C);
 

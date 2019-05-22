@@ -1,9 +1,9 @@
 #include "common.h"
 
 int
-no_errors(void)
+no_errors()
 {
-    hostcall_consumer_t *consumer = hostcall_create_consumer();
+    amd_hostcall_consumer_t *consumer = amd_hostcall_create_consumer();
     if (!consumer)
         return __LINE__;
 
@@ -13,13 +13,13 @@ no_errors(void)
         return __LINE__;
     void *aligned_buffer = realign_buffer(buffer);
 
-    CHECK(hostcall_initialize_buffer(aligned_buffer, num_packets));
+    CHECK(amd_hostcall_initialize_buffer(aligned_buffer, num_packets));
 
-    hostcall_register_buffer(consumer, aligned_buffer);
+    amd_hostcall_register_buffer(consumer, aligned_buffer);
 
-    hostcall_launch_consumer(consumer);
+    CHECK(amd_hostcall_launch_consumer(consumer));
 
-    hostcall_destroy_consumer(consumer);
+    amd_hostcall_destroy_consumer(consumer);
     free(buffer);
     return 0;
 }
@@ -29,9 +29,10 @@ main(int argc, char *argv[])
 {
     set_flags(argc, argv);
     if (debug_mode)
-        hostcall_enable_debug();
+        amd_hostcall_enable_debug();
 
-    hsa_init();
+    if (hsa_init() != HSA_STATUS_SUCCESS)
+        return __LINE__;
     runTest(no_errors);
 
     return 0;

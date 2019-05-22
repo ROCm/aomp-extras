@@ -1,11 +1,13 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <hostcall.h>
+#include <hostcall_impl.h>
 #include <hsa/hsa.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "hostcall_service_id.h"
 
 #define TEST_SERVICE 23
 
@@ -19,8 +21,8 @@ int debug_mode = 0;
 
 #define CHECK(xxx)                                                             \
     do {                                                                       \
-        hostcall_error_t error = xxx;                                          \
-        if (error != HOSTCALL_SUCCESS) {                                       \
+        amd_hostcall_error_t error = xxx;                                      \
+        if (error != AMD_HOSTCALL_SUCCESS) {                                   \
             return __LINE__;                                                   \
         }                                                                      \
     } while (0);
@@ -78,8 +80,8 @@ align_to(uintptr_t value, uint32_t alignment)
 static void *
 create_buffer(uint32_t num_packets)
 {
-    const uint32_t alignment = hostcall_get_buffer_alignment();
-    const size_t buffer_size = hostcall_get_buffer_size(num_packets);
+    const uint32_t alignment = amd_hostcall_get_buffer_alignment();
+    const size_t buffer_size = amd_hostcall_get_buffer_size(num_packets);
     const size_t allocated_size = buffer_size + alignment;
     void *buffer = malloc(allocated_size);
     if (!buffer)
@@ -93,7 +95,7 @@ realign_buffer(void *buffer)
 {
     if (!buffer)
         return 0;
-    const uint32_t alignment = hostcall_get_buffer_alignment();
+    const uint32_t alignment = amd_hostcall_get_buffer_alignment();
     return (void *)align_to((uintptr_t)buffer, alignment);
 }
 
@@ -104,7 +106,7 @@ get_ptr_index(uint64_t ptr, uint32_t index_size)
 }
 
 static header_t *
-get_header(hostcall_buffer_t *buffer, uint64_t ptr)
+get_header(buffer_t *buffer, uint64_t ptr)
 {
     return buffer->headers + get_ptr_index(ptr, buffer->index_size);
 }
@@ -116,7 +118,7 @@ set_ready_flag(uint32_t control)
 }
 
 static payload_t *
-get_payload(hostcall_buffer_t *buffer, uint64_t ptr)
+get_payload(buffer_t *buffer, uint64_t ptr)
 {
     return buffer->payloads + get_ptr_index(ptr, buffer->index_size);
 }

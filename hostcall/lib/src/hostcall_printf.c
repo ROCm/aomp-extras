@@ -31,7 +31,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 
-#include "hostcall.h"
+#include "amd_hostcall.h"
 #define NUMFPREGS 8
 #define FPREGSZ 16
 
@@ -105,9 +105,9 @@ static gpusrv_status_t gpusrv_pfGetOverflow(gpusrv_ValistExt_t *valist,
 
 // hostcall_printf: HOSTCALL service for printf
 //
-hostcall_error_t hostcall_printf(char *buf, size_t bufsz) {
+amd_hostcall_error_t hostcall_printf(char *buf, size_t bufsz) {
   if (bufsz == 0) 
-    return HOSTCALL_SUCCESS;
+    return AMD_HOSTCALL_SUCCESS;
   char *fmtstr;
   char *numdata;
   char *sdata;
@@ -124,7 +124,7 @@ hostcall_error_t hostcall_printf(char *buf, size_t bufsz) {
 
   if (fmtstr_len <= 0) {
     DEBUG_PRINT("hostcall_printf: Empty or missing format string.\n");
-    return HOSTCALL_ERROR_INVALID_REQUEST;
+    return AMD_HOSTCALL_ERROR_INVALID_REQUEST;
   }
 
   gpusrv_ValistExt_t valist;
@@ -134,13 +134,13 @@ hostcall_error_t hostcall_printf(char *buf, size_t bufsz) {
   long long data_not_used = remaining_data_size;
   if (gpusrv_pfBuildValist(&valist, fmtstr, numdata, sdata, &data_not_used) !=
       GPUSRV_STATUS_SUCCESS)
-    return HOSTCALL_ERROR_INVALID_REQUEST;
+    return AMD_HOSTCALL_ERROR_INVALID_REQUEST;
 
   if (data_not_used < 0) {
     //  Terminate if you ran past end of buffer
     DEBUG_PRINT("format %s consumed more than %lld available bytes\n", fmtstr,
                 remaining_data_size);
-    return HOSTCALL_ERROR_INVALID_REQUEST;
+    return AMD_HOSTCALL_ERROR_INVALID_REQUEST;
   }
 
   // Roll back offsets and save stack pointer for vprintf to consume
@@ -156,7 +156,7 @@ hostcall_error_t hostcall_printf(char *buf, size_t bufsz) {
   if (save_stack)
     free(save_stack);
 
-  return HOSTCALL_SUCCESS;
+  return AMD_HOSTCALL_SUCCESS;
 }
 
 // gpusrv_pfBuildValist:

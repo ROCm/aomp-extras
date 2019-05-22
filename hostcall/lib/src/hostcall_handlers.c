@@ -26,32 +26,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-
-#include <stdio.h>
-#include "atmi_hostcall.h"
-#include "atmi_runtime.h"
-
-typedef struct atl_hcq_element_s atl_hcq_element_t;
-struct atl_hcq_element_s {
-  hostcall_buffer_t *   hcb;
-  hostcall_consumer_t * consumer;
-  hsa_queue_t *       	hsa_q;
-  atl_hcq_element_t *   next_ptr;
-  uint32_t              device_id;
-};
-
-//  Persistent static values for the hcq linked list 
-atl_hcq_element_t * atl_hcq_front;
-atl_hcq_element_t * atl_hcq_rear;
-int atl_hcq_count;
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "hsa/hsa_ext_amd.h"
-#include "hostcall.h"
-#include "atmi_runtime.h"
+#include "amd_hostcall.h"
+#include "hostcall_impl.h"
 #include "hostcall_service_id.h"
 #include "hostcall_internal.h"
+#include "atmi_runtime.h"
  
 void handler_HOSTCALL_SERVICE_PRINTF(void *cbdata, uint32_t service, uint64_t *payload) {
     size_t bufsz          = (size_t) payload[0];
@@ -62,7 +46,7 @@ void handler_HOSTCALL_SERVICE_PRINTF(void *cbdata, uint32_t service, uint64_t *p
        payload[0] = (uint64_t) copyerr;
        return;
     }
-    hostcall_error_t err = hostcall_printf(host_buffer,bufsz);
+    amd_hostcall_error_t err = hostcall_printf(host_buffer,bufsz);
     payload[0] = (uint64_t) err;
     free(host_buffer);
     atmi_free(device_buffer);
@@ -119,9 +103,9 @@ void handler_HOSTCALL_SERVICE_DEMO(void *cbdata, uint32_t service, uint64_t *pay
    payload[1] = (uint64_t) num_zeros;
 }
 
-void hostcall_register_all_handlers(hostcall_consumer_t * c, void * cbdata) {
-    hostcall_register_service(c,HOSTCALL_SERVICE_PRINTF, handler_HOSTCALL_SERVICE_PRINTF, cbdata);
-    hostcall_register_service(c,HOSTCALL_SERVICE_MALLOC, handler_HOSTCALL_SERVICE_MALLOC, cbdata);
-    hostcall_register_service(c,HOSTCALL_SERVICE_FREE, handler_HOSTCALL_SERVICE_FREE, cbdata);
-    hostcall_register_service(c,HOSTCALL_SERVICE_DEMO, handler_HOSTCALL_SERVICE_DEMO, cbdata);
+void hostcall_register_all_handlers(amd_hostcall_consumer_t * c, void * cbdata) {
+    amd_hostcall_register_service(c,HOSTCALL_SERVICE_PRINTF, handler_HOSTCALL_SERVICE_PRINTF, cbdata);
+    amd_hostcall_register_service(c,HOSTCALL_SERVICE_MALLOC, handler_HOSTCALL_SERVICE_MALLOC, cbdata);
+    amd_hostcall_register_service(c,HOSTCALL_SERVICE_FREE, handler_HOSTCALL_SERVICE_FREE, cbdata);
+    amd_hostcall_register_service(c,HOSTCALL_SERVICE_DEMO, handler_HOSTCALL_SERVICE_DEMO, cbdata);
 }

@@ -5,7 +5,8 @@
 int
 null_pointer()
 {
-    if (hostcall_initialize_buffer(nullptr, 0) != HOSTCALL_ERROR_NULLPTR) {
+    if (amd_hostcall_initialize_buffer(nullptr, 0) !=
+        AMD_HOSTCALL_ERROR_NULLPTR) {
         return __LINE__;
     }
 
@@ -18,8 +19,8 @@ not_aligned()
     uint32_t ignored = -1;
     void *misaligned_buffer = (void *)1;
 
-    if (hostcall_initialize_buffer(misaligned_buffer, ignored) !=
-        HOSTCALL_ERROR_INCORRECT_ALIGNMENT) {
+    if (amd_hostcall_initialize_buffer(misaligned_buffer, ignored) !=
+        AMD_HOSTCALL_ERROR_INCORRECT_ALIGNMENT) {
         return __LINE__;
     }
 
@@ -36,8 +37,8 @@ no_errors()
         return __LINE__;
     void *aligned_buffer = realign_buffer(buffer);
 
-    CHECK(hostcall_initialize_buffer(aligned_buffer, num_packets));
-    hostcall_buffer_t *hb = (hostcall_buffer_t *)aligned_buffer;
+    CHECK(amd_hostcall_initialize_buffer(aligned_buffer, num_packets));
+    buffer_t *hb = (buffer_t *)aligned_buffer;
 
     if ((uintptr_t)hb->payloads % alignof(payload_t) != 0)
         return __LINE__;

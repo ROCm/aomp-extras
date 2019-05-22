@@ -39,7 +39,7 @@ typedef struct {
     ulong free_stack;
     ulong ready_stack;
     uint index_size;
-} hostcall_buffer_t;
+} buffer_t;
 
 static void
 send_signal(hsa_signal_t signal)
@@ -60,13 +60,13 @@ get_ptr_index(ulong ptr, uint index_size)
 }
 
 static __global header_t *
-get_header(__global hostcall_buffer_t *buffer, ulong ptr)
+get_header(__global buffer_t *buffer, ulong ptr)
 {
     return buffer->headers + get_ptr_index(ptr, buffer->index_size);
 }
 
 static __global payload_t *
-get_payload(__global hostcall_buffer_t *buffer, ulong ptr)
+get_payload(__global buffer_t *buffer, ulong ptr)
 {
     return buffer->payloads + get_ptr_index(ptr, buffer->index_size);
 }
@@ -88,8 +88,7 @@ static uint
 set_control_field(uint control, uint offset, uint width, uint value)
 {
     uint mask = ~(((1 << width) - 1) << offset);
-    control &= mask;
-    return control | (value << offset);
+    return (control & mask) | (value << offset);
 }
 
 static uint
@@ -100,7 +99,7 @@ set_ready_flag(uint control)
 }
 
 static ulong
-pop(__global ulong *top, __global hostcall_buffer_t *buffer)
+pop(__global ulong *top, __global buffer_t *buffer)
 {
     ulong F = AL((__global atomic_ulong *)top, memory_order_acquire,
                  memory_scope_all_svm_devices);
@@ -125,12 +124,12 @@ pop(__global ulong *top, __global hostcall_buffer_t *buffer)
  *         broadcast to the whole wave.
  */
 static ulong
-pop_free_stack(__global hostcall_buffer_t *buffer)
+pop_free_stack(__global buffer_t *buffer)
 {
     uint me = __ockl_lane_u32();
     uint low = __builtin_amdgcn_readfirstlane(me);
 
-    ulong packet_ptr;
+    ulong packet_ptr = 0;
     if (me == low) {
         packet_ptr = pop(&buffer->free_stack, buffer);
     }
@@ -144,7 +143,7 @@ pop_free_stack(__global hostcall_buffer_t *buffer)
 }
 
 static void
-push(__global ulong *top, ulong ptr, __global hostcall_buffer_t *buffer)
+push(__global ulong *top, ulong ptr, __global buffer_t *buffer)
 {
     ulong F = AL((__global const atomic_ulong *)top, memory_order_relaxed,
                  memory_scope_all_svm_devices);
@@ -163,7 +162,7 @@ push(__global ulong *top, ulong ptr, __global hostcall_buffer_t *buffer)
  *         packet and signal the host.
  */
 static void
-push_ready_stack(__global hostcall_buffer_t *buffer, ulong ptr)
+push_ready_stack(__global buffer_t *buffer, ulong ptr)
 {
     uint me = __ockl_lane_u32();
     uint low = __builtin_amdgcn_readfirstlane(me);
@@ -176,15 +175,17 @@ push_ready_stack(__global hostcall_buffer_t *buffer, ulong ptr)
 static ulong
 inc_ptr_tag(ulong ptr, uint index_size)
 {
-    ulong index = get_ptr_index(ptr, index_size);
-    ulong tag = get_ptr_tag(ptr, index_size);
-    return ((tag + 1) << index_size) | index;
+    // Unit step for the tag.
+    ulong inc = 1UL << index_size;
+    ptr += inc;
+    // When the tag for index 0 wraps, increment the tag.
+    return ptr == 0 ? inc : ptr;
 }
 
 /** \brief Return the packet after incrementing the ABA tag
  */
 static void
-return_free_packet(__global hostcall_buffer_t *buffer, ulong ptr)
+return_free_packet(__global buffer_t *buffer, ulong ptr)
 {
     uint me = __ockl_lane_u32();
     uint low = __builtin_amdgcn_readfirstlane(me);
@@ -220,9 +221,16 @@ fill_packet(__global header_t *header, __global payload_t *payload,
     ptr[7] = arg7;
 }
 
-typedef struct hostcall_result_s{
-  ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
-} hostcall_result_t;
+typedef struct {
+    long arg0;
+    long arg1;
+    long arg2;
+    long arg3;
+    long arg4;
+    long arg5;
+    long arg6;
+    long arg7;
+} __ockl_hostcall_result_t;
 
 /** \brief Wait for the host response and return the first two ulong
  *         entries per workitem.
@@ -231,8 +239,8 @@ typedef struct hostcall_result_s{
  *  the host changes the state to DONE. Each workitem reads the first
  *  two ulong elements in its slot and returns this.
  */
-hostcall_result_t 
-get_return_struct(__global header_t *header, __global payload_t *payload)
+static __ockl_hostcall_result_t
+get_return_value(__global header_t *header, __global payload_t *payload)
 {
     uint me = __ockl_lane_u32();
     uint low = __builtin_amdgcn_readfirstlane(me);
@@ -264,24 +272,23 @@ get_return_struct(__global header_t *header, __global payload_t *payload)
         __builtin_amdgcn_s_sleep(1);
     }
 
-    __global ulong *ptr = (__global ulong *)(payload->slots + me);
-    ulong value0 = *ptr++;
-    ulong value1 = *ptr++;
-    ulong value2 = *ptr++;
-    ulong value3 = *ptr++;
-    ulong value4 = *ptr++;
-    ulong value5 = *ptr++;
-    ulong value6 = *ptr++;
-    ulong value7 = *ptr;
+    __global long *ptr = (__global long *)(payload->slots + me);
+    __ockl_hostcall_result_t retval;
+    retval.arg0 = *ptr++;
+    retval.arg1 = *ptr++;
+    retval.arg2 = *ptr++;
+    retval.arg3 = *ptr++;
+    retval.arg4 = *ptr++;
+    retval.arg5 = *ptr++;
+    retval.arg6 = *ptr++;
+    retval.arg7 = *ptr;
 
-    hostcall_result_t retval = {value0, value1, value2, value3,
-                              value4, value5, value6, value7};
     return retval;
 }
 
-/** \brief Invoke a host service using the hostcall subsystem
+/** \brief The implementation that should be hidden behind an ABI
  *
- *  The abi is a wave-wide operation, where the service_id
+ *  The transaction is a wave-wide operation, where the service_id
  *  must be uniform, but the parameters are different for each
  *  workitem. Parameters from all active lanes are written into a
  *  hostcall packet. The hostcall blocks until the host processes the
@@ -292,19 +299,13 @@ get_return_struct(__global header_t *header, __global payload_t *payload)
  *  function itself will be exposed as an orindary function symbol to
  *  be linked into kernel objects that are loaded after this library.
  */
-
-
-__global hostcall_buffer_t * get_buffer_ptr() {
-  __constant size_t* argptr = (__constant size_t *)__builtin_amdgcn_implicitarg_ptr();
-  __global hostcall_buffer_t *buffer = (__global hostcall_buffer_t *)argptr[3];
-  return buffer;
-}
-
-hostcall_result_t hostcall_invoke(uint service_id,
+__ockl_hostcall_result_t
+hostcall_invoke(uint service_id,
                        ulong arg0, ulong arg1, ulong arg2, ulong arg3,
                        ulong arg4, ulong arg5, ulong arg6, ulong arg7)
 {
-    __global hostcall_buffer_t * buffer = get_buffer_ptr();
+    __constant size_t* argptr = (__constant size_t *)__builtin_amdgcn_implicitarg_ptr();
+    __global buffer_t *buffer = (__global buffer_t *)argptr[3];
     ulong packet_ptr = pop_free_stack(buffer);
     __global header_t *header = get_header(buffer, packet_ptr);
     __global payload_t *payload = get_payload(buffer, packet_ptr);
@@ -312,8 +313,7 @@ hostcall_result_t hostcall_invoke(uint service_id,
                 arg5, arg6, arg7);
     push_ready_stack(buffer, packet_ptr);
 
-    hostcall_result_t retval = get_return_struct(header, payload);
+    __ockl_hostcall_result_t retval = get_return_value(header, payload);
     return_free_packet(buffer, packet_ptr);
-
     return retval;
 }

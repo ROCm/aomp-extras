@@ -201,7 +201,6 @@ foreach(mcpu ${mcpus})
 endforeach()
 
 install(FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/../include/atmi_hostcall.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_service_id.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_stubs.h"
     DESTINATION include)
