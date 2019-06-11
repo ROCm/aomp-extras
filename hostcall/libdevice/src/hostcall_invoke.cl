@@ -300,12 +300,15 @@ get_return_value(__global header_t *header, __global payload_t *payload)
  *  be linked into kernel objects that are loaded after this library.
  */
 __ockl_hostcall_result_t
-hostcall_invoke(uint service_id,
+hostcall_invoke(uint32_t needs_hostcall_buffer, uint service_id,
                        ulong arg0, ulong arg1, ulong arg2, ulong arg3,
                        ulong arg4, ulong arg5, ulong arg6, ulong arg7)
 {
+
+   __ockl_hostcall_result_t retval;
+  if (needs_hostcall_buffer) {
     __constant size_t* argptr = (__constant size_t *)__builtin_amdgcn_implicitarg_ptr();
-    __global buffer_t *buffer = (__global buffer_t *)argptr[3];
+    __global buffer_t * buffer = (__global buffer_t *)argptr[3];
     ulong packet_ptr = pop_free_stack(buffer);
     __global header_t *header = get_header(buffer, packet_ptr);
     __global payload_t *payload = get_payload(buffer, packet_ptr);
@@ -313,7 +316,8 @@ hostcall_invoke(uint service_id,
                 arg5, arg6, arg7);
     push_ready_stack(buffer, packet_ptr);
 
-    __ockl_hostcall_result_t retval = get_return_value(header, payload);
+    retval = get_return_value(header, payload);
     return_free_packet(buffer, packet_ptr);
-    return retval;
+  }
+  return retval;
 }

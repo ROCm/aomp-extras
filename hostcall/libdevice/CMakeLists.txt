@@ -48,10 +48,12 @@ set(HIPINC ${CMAKE_CURRENT_SOURCE_DIR}/../../../hip/include)
 #optimization level
 set(optimization_level 2)
 
-file(GLOB sources
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hip
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cl
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.ll)
+# Only list the sources we want to compile. Do not list needs_hostcall_buffer.hip
+# which is compiled and linked separately below.
+set(sources
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/hostcall_stubs.hip
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/hostcall_invoke.cl)
+
 
 # for both in-tree and out-of-tree build
 if (NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
@@ -98,7 +100,8 @@ macro(collect_sources name dir)
 endmacro()
 
 macro(add_hip_bc_library name dir)
-  set(cu_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++
+
+  set(hip_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++
     -x hip
     -std=c++11
     -fcuda-rdc
@@ -111,9 +114,9 @@ macro(add_hip_bc_library name dir)
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include
     -I${HIPINC})
+
 #    --hip-auto-headers=cuda_open
 #    --hip-auto-headers=cuda
-
   set(bc1_files)
 
   foreach(file ${ARGN})
@@ -128,7 +131,7 @@ macro(add_hip_bc_library name dir)
 
     add_custom_command(
       OUTPUT ${bc1_filename}
-      COMMAND ${cu_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip -o ${bc1_filename}
+      COMMAND ${hip_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip -o ${bc1_filename}
       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip" ${h_files}
       )
 
@@ -199,6 +202,19 @@ foreach(mcpu ${mcpus})
      DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}/libdevice"
   )
 endforeach()
+
+# Build needs_hostcall_buffer-amdgcn.bc. This bc is linked only when host services are needed.
+# It should not be linked to the SDL libhostcall*.bc SDLs because then it would appear as if all
+# applications need hostcall services.
+add_custom_command(
+  OUTPUT ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
+  COMMAND ${hip_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip -o ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip"
+)
+add_custom_target(needs_hostcall_buffer-amdgcn ALL DEPENDS ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc)
+install(FILES ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
+  DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}/libdevice"
+)
 
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_service_id.h"

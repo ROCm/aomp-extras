@@ -13,6 +13,7 @@ typedef struct hostcall_result_s{
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
 } hostcall_result_t;
 
-EXTERN hostcall_result_t hostcall_invoke(uint id,
+EXTERN hostcall_result_t hostcall_invoke(unsigned int needs_hostcall_buffer,
+    uint id,
     ulong arg0, ulong arg1, ulong arg2, ulong arg3,
     ulong arg4, ulong arg5, ulong arg6, ulong arg7);
