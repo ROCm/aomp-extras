@@ -286,6 +286,8 @@ get_return_value(__global header_t *header, __global payload_t *payload)
     return retval;
 }
 
+extern __global unsigned int needs_hostcall_buffer;
+
 /** \brief The implementation that should be hidden behind an ABI
  *
  *  The transaction is a wave-wide operation, where the service_id
@@ -300,7 +302,7 @@ get_return_value(__global header_t *header, __global payload_t *payload)
  *  be linked into kernel objects that are loaded after this library.
  */
 __ockl_hostcall_result_t
-hostcall_invoke(uint32_t needs_hostcall_buffer, uint service_id,
+hostcall_invoke( uint service_id,
                        ulong arg0, ulong arg1, ulong arg2, ulong arg3,
                        ulong arg4, ulong arg5, ulong arg6, ulong arg7)
 {

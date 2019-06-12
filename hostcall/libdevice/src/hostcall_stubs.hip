@@ -5,8 +5,6 @@
 #include "hip/hip_runtime.h"
 #include "hostcall_service_id.h"
 #include "hostcall_stubs.h"
-extern __device__ unsigned int needs_hostcall_buffer;
-
 // -----------------------------------------------------------------------------
 //
 // printf: stubs to support printf 
@@ -25,8 +23,7 @@ extern __device__ unsigned int needs_hostcall_buffer;
 EXTERN char * printf_alloc(uint bufsz) {
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
   arg0 = (ulong) bufsz;
-  hostcall_result_t result = hostcall_invoke(needs_hostcall_buffer,
-   PACK_VERS(HOSTCALL_SERVICE_MALLOC),
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_MALLOC),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   __builtin_amdgcn_s_barrier();
   return (char *) result.arg1;
@@ -37,8 +34,7 @@ EXTERN int printf_execute(char * print_buffer, uint bufsz) {
   __builtin_amdgcn_s_barrier();
   arg0 = (ulong) bufsz;
   arg1 = (ulong) print_buffer ;
-  hostcall_result_t result = hostcall_invoke(needs_hostcall_buffer,
-    PACK_VERS(HOSTCALL_SERVICE_PRINTF),
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_PRINTF),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   return (int) result.arg0;
 }
@@ -84,8 +80,7 @@ EXTERN int vector_product_zeros(int N, int*A,  int*B, int*C) {
   arg1 = (long) A;
   arg2 = (long) B;
   arg3 = (long) C;
-  hostcall_result_t result = hostcall_invoke(needs_hostcall_buffer,
-    PACK_VERS(HOSTCALL_SERVICE_DEMO),
+  hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_DEMO),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   int rc = (int) result.arg0;
   int num_zeros = (int) result.arg1;
