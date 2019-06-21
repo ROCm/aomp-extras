@@ -186,7 +186,7 @@ hsa_status_t atmi_hostcall_terminate() {
          c = this_front->consumer;
          amd_hostcall_destroy_consumer(c);
       }
-      hsa_memory_free(this_front->hcb);
+      atmi_free(this_front->hcb);
       last_front = this_front;
       this_front = this_front->next_ptr;
       free(last_front);
