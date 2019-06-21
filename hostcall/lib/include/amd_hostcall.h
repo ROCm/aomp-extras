@@ -261,8 +261,8 @@ amd_hostcall_enable_debug(void);
 #include "hsa/hsa_ext_amd.h"
 AMD_HOSTCALL_API
 unsigned long atmi_hostcall_assign_buffer(unsigned int minpackets,
-                hsa_queue_t * this_Q, hsa_amd_memory_pool_t finegrain_pool,
-                uint32_t device_id, int* is_new_buffer);
+                hsa_queue_t * this_Q,
+                uint32_t device_id);
 
 AMD_HOSTCALL_API
 hsa_status_t atmi_hostcall_init();
