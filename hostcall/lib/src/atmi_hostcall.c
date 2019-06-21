@@ -95,8 +95,7 @@ static atl_hcq_element_t  * atl_hcq_find_by_hsa_q(hsa_queue_t * hsa_q) {
   return NULL;
 }
 
-static buffer_t * atl_hcq_create_buffer(unsigned int num_packets,
-	 hsa_amd_memory_pool_t finegrain_pool) {
+static buffer_t * atl_hcq_create_buffer(unsigned int num_packets) {
     if (num_packets == 0) {
 	printf("num_packets cannot be zero \n");
 	abort();
@@ -104,9 +103,10 @@ static buffer_t * atl_hcq_create_buffer(unsigned int num_packets,
     size_t size  = amd_hostcall_get_buffer_size(num_packets);
     uint32_t align = amd_hostcall_get_buffer_alignment();
     void *newbuffer = NULL;
-    hsa_status_t err = hsa_amd_memory_pool_allocate(finegrain_pool, size+align, 0, &newbuffer);
-    if (!newbuffer || (err != HSA_STATUS_SUCCESS) ) {
-	    printf("call to  hsa_amd_memory_pool_allocate failed \n");
+    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,0,0);
+    atmi_status_t err = atmi_malloc(&newbuffer, size+align, place);
+    if (!newbuffer || (err != ATMI_STATUS_SUCCESS) ) {
+	    printf("call to atmi_malloc failed \n");
 	    abort();
     }
     if (amd_hostcall_initialize_buffer(newbuffer, num_packets) != AMD_HOSTCALL_SUCCESS) {
@@ -148,15 +148,13 @@ void hostcall_register_all_handlers(amd_hostcall_consumer_t * c, void * cbdata);
 // ATMI uses the header atmi_hostcall.h to reference these. 
 //
 unsigned long atmi_hostcall_assign_buffer(unsigned int minpackets, 
-		hsa_queue_t * this_Q, hsa_amd_memory_pool_t finegrain_pool,
-		uint32_t device_id, int * is_new_buffer) {
-    *is_new_buffer =  0;
+		hsa_queue_t * this_Q,
+		uint32_t device_id) {
     atl_hcq_element_t * llq_elem ;
     llq_elem  = atl_hcq_find_by_hsa_q(this_Q);
     if (!llq_elem) {
        //  For now, we create one bufer and one consumer per ATMI hsa queue
-       buffer_t * hcb  = atl_hcq_create_buffer(minpackets, finegrain_pool) ;
-       *is_new_buffer =  1;
+       buffer_t * hcb  = atl_hcq_create_buffer(minpackets);
        amd_hostcall_consumer_t * c ;
        atl_hcq_element_t * front = atl_hcq_front;
        if (front) 
