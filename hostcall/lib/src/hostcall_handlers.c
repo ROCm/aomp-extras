@@ -40,27 +40,14 @@ SOFTWARE.
 void handler_HOSTCALL_SERVICE_PRINTF(void *cbdata, uint32_t service, uint64_t *payload) {
     size_t bufsz          = (size_t) payload[0];
     char* device_buffer   = (char*) payload[1];
-    char* host_buffer     = (char*) malloc(bufsz);
-    atmi_status_t copyerr = atmi_memcpy(host_buffer, device_buffer,  bufsz);
-    if (copyerr != ATMI_STATUS_SUCCESS) {
-       payload[0] = (uint64_t) copyerr;
-       return;
-    }
-    amd_hostcall_error_t err = hostcall_printf(host_buffer,bufsz);
+    amd_hostcall_error_t err = hostcall_printf(device_buffer,bufsz);
     payload[0] = (uint64_t) err;
-    free(host_buffer);
     atmi_free(device_buffer);
 }
 
 void handler_HOSTCALL_SERVICE_MALLOC(void *cbdata, uint32_t service, uint64_t *payload) {
-    uint32_t device_id;
-    atl_hcq_element_t * llq_elem = (atl_hcq_element_t *) cbdata;
-    if (llq_elem)
-       device_id = llq_elem->device_id;
-    else
-       device_id = 0 ; // This really should be an error
     void *ptr = NULL;
-    atmi_mem_place_t place = ATMI_MEM_PLACE_GPU_MEM(0,device_id,0);
+    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,0,0);
     atmi_status_t err = atmi_malloc(&ptr, payload[0], place);
     payload[0] = (uint64_t) err;
     payload[1] = (uint64_t) ptr;
