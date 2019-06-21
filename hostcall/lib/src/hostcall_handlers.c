@@ -47,7 +47,9 @@ void handler_HOSTCALL_SERVICE_PRINTF(void *cbdata, uint32_t service, uint64_t *p
 
 void handler_HOSTCALL_SERVICE_MALLOC(void *cbdata, uint32_t service, uint64_t *payload) {
     void *ptr = NULL;
-    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,0,0);
+    // CPU device ID 0 is the fine grain memory
+    int cpu_device_id = 0;
+    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,cpu_device_id,0);
     atmi_status_t err = atmi_malloc(&ptr, payload[0], place);
     payload[0] = (uint64_t) err;
     payload[1] = (uint64_t) ptr;
