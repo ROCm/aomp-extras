@@ -132,8 +132,7 @@ macro(add_hip_bc_library name dir)
     add_custom_command(
       OUTPUT ${bc1_filename}
       COMMAND ${hip_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip -o ${bc1_filename}
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip" ${h_files}
-      )
+      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/${fname}.hip" ${h_files} libaompextras-amdgcn-${mcpu}-bc)
 
     list(APPEND bc1_files ${bc1_filename})
   endforeach()
@@ -188,6 +187,7 @@ endmacro()
 set(libname "hostcall-amdgcn")
 collect_sources(${libname} ${CMAKE_CURRENT_SOURCE_DIR} ${sources})
 
+set(lastmcpu)
 foreach(mcpu ${mcpus})
   set(bc_files)
   add_hip_bc_library(${libname} ${CMAKE_CURRENT_SOURCE_DIR} ${hip_sources})
@@ -198,9 +198,9 @@ foreach(mcpu ${mcpus})
     DEPENDS ${bc_files}
     )
   add_custom_target(lib${libname}-${mcpu} ALL DEPENDS lib${libname}-${mcpu}.bc)
-  install(FILES ${OUTPUTDIR}/lib${libname}-${mcpu}.bc 
-     DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}/libdevice"
-  )
+  install(FILES ${OUTPUTDIR}/lib${libname}-${mcpu}.bc DESTINATION "lib/libdevice")
+  install(FILES ${OUTPUTDIR}/lib${libname}-${mcpu}.bc DESTINATION "lib-debug/libdevice")
+  set(lastmcpu ${mcpu})
 endforeach()
 
 # Build needs_hostcall_buffer-amdgcn.bc. This bc is linked only when host services are needed.
@@ -209,7 +209,7 @@ endforeach()
 add_custom_command(
   OUTPUT ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
   COMMAND ${hip_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip -o ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip" libaompextras-amdgcn-${lastmcpu}-bc
 )
 add_custom_target(needs_hostcall_buffer-amdgcn ALL DEPENDS ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc)
 install(FILES ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
