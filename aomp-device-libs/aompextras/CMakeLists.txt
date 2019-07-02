@@ -21,7 +21,7 @@ endif()
 # Assome rocm-device-libs repository is next to hip repository 
 set(ROCDL_INC_OCKL ${ROCDL}/ockl/inc)
 set(ROCDL_INC_OCML ${ROCDL}/ocml/inc)
-set(ROCDL_INC_IRIF ${ROCDL}/irif/inc)
+set(ROCDL_INC_IRIF ${CMAKE_CURRENT_SOURCE_DIR}/../irif/inc)
 
 set(libname "aompextras")
 project(${libname})
