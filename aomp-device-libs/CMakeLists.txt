@@ -27,7 +27,7 @@ endif()
 #  set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE INTERNAL "Prefix prepended to install directories")
 #endif()
 
-set(ROCDL "/home/grodgers/git/aomp/rocm-device-libs")
+set(ROCDL "${CMAKE_CURRENT_SOURCE_DIR}/../../rocm-device-libs")
 
 find_package(LLVM REQUIRED CONFIG HINTS ${LLVM_DIR})
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
