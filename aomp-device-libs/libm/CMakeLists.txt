@@ -64,6 +64,7 @@ foreach(mcpu ${gpulist})
     -Xopenmp-target=${triple}
     -march=${mcpu}
     -emit-llvm 
+    -DNO_LIBM_HEADER_DEFS=1
     -O${optimization_level}
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include)
