@@ -51,8 +51,8 @@ set(OUTPUTDIR ${CMAKE_CURRENT_BINARY_DIR})
 
 macro(build_static_device_bc_lib)
 foreach(mcpu ${gpulist})
-  set(bundled_filename bundle_cpp.${mcpu}.bc)
-  set(bundled_c_filename bundle_c.${mcpu}.bc)
+	#  set(bundled_filename bundle_cpp.${mcpu}.bc)
+	#  set(bundled_c_filename bundle_c.${mcpu}.bc)
   set(bc_filename libm_cpp.${mcpu}.bc)
   set(bc_c_filename libm_c.${mcpu}.bc)
   set(omp_common_args
@@ -69,45 +69,21 @@ foreach(mcpu ${gpulist})
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include)
   set(openmp_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++11 ${omp_common_args}
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp -o ${bundled_filename})
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp -o ${bc_filename})
   set(openmp_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang ${omp_common_args}
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c -o ${bundled_c_filename})
-  set(unbundle_common_args -unbundle -type bc)
-  set(unbundle_cmd ${LLVM_INSTALL_PREFIX}/bin/clang-offload-bundler 
-    ${unbundle_common_args}
-    -inputs=${bundled_filename}
-    -targets=openmp-${triple}-${mcpu},host-x86_64-pc-linux-gnu 
-    -outputs=${bc_filename},${OUTPUTDIR}/libm-${systemarch}-${mcpu}.host.cpp.bc)
-  set(unbundle_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang-offload-bundler 
-    ${unbundle_common_args}
-    -inputs=${bundled_c_filename}
-    -targets=openmp-${triple}-${mcpu},host-x86_64-pc-linux-gnu 
-    -outputs=${bc_c_filename},${OUTPUTDIR}/libm-${systamarch}-${mcpu}.host.c.bc)
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c -o ${bc_c_filename})
   set(bc_files ${bc_filename} ${bc_c_filename})
   file(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
-  # 1.  Compile cpp code with openmp to make bundled_filename 
-  add_custom_command(
-      OUTPUT ${bundled_filename}
-      COMMAND ${openmp_cmd}
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp" ${h_files})
-  # 2.  unbundled the bundled_filename to get device bc
+  # Compile cpp code with openmp to make bundled_filename 
   add_custom_command(
       OUTPUT ${bc_filename}
-      COMMAND ${unbundle_cmd}
-      DEPENDS ${bundled_filename})
-  #3  compile c code with openmp to make bundled_c_filename 
-  add_custom_command(
-      OUTPUT ${bundled_c_filename}
-      COMMAND ${openmp_c_cmd}
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c" ${h_files})
-  #4  unbundle the bundled_c_filename to get device bc
+      COMMAND ${openmp_cmd}
+      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp" ${h_files})
   add_custom_command(
       OUTPUT ${bc_c_filename}
-      COMMAND ${unbundle_c_cmd}
-      DEPENDS ${bundled_c_filename})
-  #5  link the c and cpp bc files to make the SDL (static device lib)
-  #message("LINKCMD : ${LLVM_INSTALL_PREFIX}/bin/llvm-link ${bc_files} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc")
+      COMMAND ${openmp_c_cmd}
+      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c" ${h_files})
   add_custom_command(
     OUTPUT libm-${systemarch}-${mcpu}.bc
     COMMAND ${LLVM_INSTALL_PREFIX}/bin/llvm-link ${bc_files} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
