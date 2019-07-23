@@ -72,7 +72,7 @@ function usage(){
 
    Options with values:
     -aomp      <path>           $AOMP, $HOME/rocm/aomp, or /opt/rocm/aomp
-    -libgcn    <path>           $DEVICELIB or $AOMP/lib/libdevice
+    -libgcn    <path>           $DEVICELIB or $AOMP/lib
     -cuda-path <path>           $CUDA_PATH or /usr/local/cuda
     -atmipath  <path>           $ATMI_PATH or /opt/rocm/aomp
     -mcpu      <cputype>        Default= value returned by mygpu
@@ -234,7 +234,7 @@ if [ ! -d $AOMP ] ; then
    exit 1
 fi
 
-DEVICELIB=${DEVICELIB:-$AOMP/lib/libdevice}
+DEVICELIB=${DEVICELIB:-$AOMP/lib}
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 ATMI_PATH=${ATMI_PATH:-/opt/rocm/aomp}
@@ -258,7 +258,9 @@ fi
 
 BCFILES=""
 
-BCFILES="$BCFILES $DEVICELIB/cuda2gcn.amdgcn.bc"
+BCFILES="$BCFILES $DEVICELIB/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
+BCFILES="$BCFILES $DEVICELIB/libdevice/libm-amdgcn-$LC_MCPU.bc"
+BCFILES="$BCFILES $DEVICELIB/libdevice/libhostcall-amdgcn-$LC_MCPU.bc"
 BCFILES="$BCFILES $DEVICELIB/hip.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/hc.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/opencl.amdgcn.bc"
