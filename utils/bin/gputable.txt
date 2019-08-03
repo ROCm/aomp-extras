@@ -12,7 +12,7 @@
 1002:131b 0000 0000 kaveri : Kaveri [Radeon R4 Graphics]
 1002:131c 0000 0000 kaveri : Kaveri [Radeon R7 Graphics]
 1002:131d 0000 0000 kaveri : Kaveri [Radeon R6 Graphics]
-1002:15dd 0000 0000 gfx902 : Raven Ridge [Radeon Vega Series / Radeon Vega Mobile Series]
+1002:15dd 0000 0000 vega : Raven Ridge [Radeon Vega Series / Radeon Vega Mobile Series]
 1002:15dd 103c 83c6 vega : Radeon Vega 8 Mobile
 1002:15dd 1458 d000 vega : Radeon RX Vega 11
 1002:15ff 0000 0000 vega : Vega 11 [Radeon Vega 28 Mobile]
@@ -430,12 +430,12 @@
 1002:6665 17aa 368f jet : Radeon R5 A230
 1002:6667 0000 0000 jet : Jet ULT [Radeon R5 M230]
 1002:666f 0000 0000 sun : Sun LE [Radeon HD 8550M / R5 M230]
-1002:66a0 0000 0000 vega20 : Vega 20 [Radeon Instinct]
-1002:66a1 0000 0000 vega20 : Vega 20
-1002:66a2 0000 0000 vega20 : Vega 20
-1002:66a3 0000 0000 vega20 : Vega 20
-1002:66a7 0000 0000 vega20 : Vega 20 [Radeon Pro Vega 20]
-1002:66af 0000 0000 vega20 : Vega 20
+1002:66a0 0000 0000 vega : Vega 20 [Radeon Instinct]
+1002:66a1 0000 0000 vega : Vega 20
+1002:66a2 0000 0000 vega : Vega 20
+1002:66a3 0000 0000 vega : Vega 20
+1002:66a7 0000 0000 vega : Vega 20 [Radeon Pro Vega 20]
+1002:66af 0000 0000 vega : Vega 20
 1002:6718 0000 0000 cayman : Cayman XT [Radeon HD 6970]
 1002:6719 0000 0000 cayman : Cayman PRO [Radeon HD 6950]
 1002:671c 0000 0000 antilles : Antilles [Radeon HD 6990]
@@ -1006,7 +1006,7 @@
 1002:67df 1458 22f0 ellesmere : Radeon RX 570
 1002:67df 1458 22f7 ellesmere : Radeon RX 570 Gaming 4G
 1002:67df 1462 3411 ellesmere : Radeon RX 470
-1002:67df 1462 3413 ellesmere : Radeon RX 480 Gaming X 8GB
+1002:67df 1462 3413 ellesmere : Radeon RX 480
 1002:67df 1462 3416 ellesmere : Radeon RX 570
 1002:67df 1462 3418 ellesmere : Radeon RX 580 Armor 4G OC
 1002:67df 148c 2372 ellesmere : Radeon RX 480
@@ -1035,14 +1035,12 @@
 1002:67e8 103c 8275 baffin : Radeon Pro WX 4150
 1002:67e8 103c 8277 baffin : Radeon Pro WX 4150
 1002:67eb 0000 0000 baffin : Baffin [Radeon Pro V5300X]
-1002:67ef 0000 0000 baffin : Baffin [Radeon RX 460/560D / Pro 450/455/460/555/555X/560/560X]
+1002:67ef 0000 0000 baffin : Baffin [Radeon RX 460/560D / Pro 450/455/460/555/560]
 1002:67ef 106b 0160 baffin : Radeon Pro 460
 1002:67ef 106b 0166 baffin : Radeon Pro 455
 1002:67ef 106b 0167 baffin : Radeon Pro 450
 1002:67ef 106b 0179 baffin : Radeon Pro 560
 1002:67ef 106b 017a baffin : Radeon Pro 555
-1002:67ef 106b 018f baffin : Radeon Pro 560X
-1002:67ef 106b 0190 baffin : Radeon Pro 555X
 1002:67ef 1642 1727 baffin : Polaris 21 XL [Radeon RX 560D]
 1002:67ef 1682 956d baffin : Polaris 21 XL [Radeon RX 560D]
 1002:67ff 0000 0000 baffin : Baffin [Radeon RX 550 640SP / RX 560/560X]
@@ -1252,7 +1250,7 @@
 1002:6867 0000 0000 vega : Vega 10 XL [Radeon Pro Vega 56]
 1002:6868 0000 0000 vega : Vega 10 [Radeon PRO WX 8100]
 1002:686c 0000 0000 vega : Vega 10 [Radeon Instinct MI25 MxGPU]
-1002:687f 0000 0000 vega : Vega 10 XL/XT [Radeon RX Vega 56/64]
+1002:687f 0000 0000 vega : Vega 10 XT [Radeon RX Vega 64]
 1002:6880 0000 0000 lexington : Lexington [Radeon HD 6550M]
 1002:6880 103c 163c lexington : Pavilion dv6 Radeon HD 6550M
 1002:6898 0000 0000 cypress : Cypress XT [Radeon HD 5870]
@@ -1742,7 +1740,7 @@
 1002:6939 148c 9380 tonga : Radeon R9 380
 1002:6939 174b e308 tonga : Radeon R9 380 Nitro 4G D5
 1002:694c 0000 0000 vega : Polaris 22 [Radeon RX Vega M GH]
-1002:694e 0000 0000 vega : Polaris 22 XL [Radeon RX Vega M GL]
+1002:694e 0000 0000 vega : Polaris 22 [Radeon RX Vega M GL]
 1002:6985 0000 0000 lexa : Lexa XT [Radeon PRO WX 3100]
 1002:6987 0000 0000 lexa : Lexa [Radeon E9171 MCM]
 1002:6995 0000 0000 lexa : Lexa XT [Radeon PRO WX 2100]
@@ -2467,7 +2465,6 @@
 10de:040f 0000 0000 fx1700 : G84GL [Quadro FX 1700]
 10de:0410 0000 0000 gt330 : G92 [GeForce GT 330]
 10de:0414 0000 0000 9800gt : G92 [GeForce 9800 GT]
-10de:0418 0000 0000 gt330 : G92 [GeForce GT 330 OEM]
 10de:0420 0000 0000 8400 : G86 [GeForce 8400 SE]
 10de:0421 0000 0000 8500gt : G86 [GeForce 8500 GT]
 10de:0421 1462 0960 8500gt : NX8500GT-TD512EH/M2
@@ -3000,7 +2997,7 @@
 10de:1005 3842 2794 gtx : GeForce GTX Titan SC Hydro Copper
 10de:1005 3842 2795 gtx : GeForce GTX Titan SC Hydro Copper Signature
 10de:1007 0000 0000 gtx780 : GK110 [GeForce GTX 780 Rev. 2]
-10de:1008 0000 0000 gtx780 : GK110 [GeForce GTX 780 Ti 6GB]
+10de:1008 0000 0000 gtx780 : GK110 [GeForce GTX 780 Ti Rev. 2]
 10de:100a 0000 0000 gtx780 : GK110B [GeForce GTX 780 Ti]
 10de:100c 0000 0000 gtxblack : GK110B [GeForce GTX TITAN Black]
 10de:101e 0000 0000 k20x : GK110GL [Tesla K20X]
@@ -3240,7 +3237,6 @@
 10de:1392 0000 0000 gtx860m : GM107M [GeForce GTX 860M]
 10de:1393 0000 0000 840m : GM107M [GeForce 840M]
 10de:1398 0000 0000 845m : GM107M [GeForce 845M]
-10de:1399 0000 0000 945m : GM107M [GeForce 945M]
 10de:139a 0000 0000 gtx950m : GM107M [GeForce GTX 950M]
 10de:139a 17aa 362c gtx950m : GeForce GTX 950A
 10de:139a 17aa 362f gtx950m : GeForce GTX 950A
@@ -3326,26 +3322,22 @@
 10de:1ba1 1462 11e8 gtx1070 : GeForce GTX 1070 Max-Q
 10de:1ba1 1462 11e9 gtx1070 : GeForce GTX 1070 Max-Q
 10de:1ba1 1558 9501 gtx1070 : GeForce GTX 1070 Max-Q
-10de:1ba2 0000 0000 gtx1070 : GP104M [GeForce GTX 1070 Mobile]
 10de:1bad 0000 0000 gtx1070 : GP104 [GeForce GTX 1070 Engineering Sample]
 10de:1bb0 0000 0000 p5000 : GP104GL [Quadro P5000]
 10de:1bb1 0000 0000 p4000 : GP104GL [Quadro P4000]
 10de:1bb3 0000 0000 p4 : GP104GL [Tesla P4]
 10de:1bb4 0000 0000 p6 : GP104GL [Tesla P6]
 10de:1bb5 0000 0000 p5200 : GP104GLM [Quadro P5200 Mobile]
-10de:1bb5 103c 842f p5200 : P5200 [Zbook 17 G5 mobile workstation]
 10de:1bb6 0000 0000 p5000 : GP104GLM [Quadro P5000 Mobile]
 10de:1bb7 0000 0000 p4000 : GP104GLM [Quadro P4000 Mobile]
 10de:1bb7 1462 11e9 p4000 : Quadro P4000 Max-Q
 10de:1bb8 0000 0000 p3000 : GP104GLM [Quadro P3000 Mobile]
 10de:1bb9 0000 0000 p4200 : GP104GLM [Quadro P4200 Mobile]
-10de:1bb9 103c 842f p4200 : P4200 [Zbook 17 G5 mobile workstation]
 10de:1bbb 0000 0000 p3200 : GP104GLM [Quadro P3200 Mobile]
-10de:1bbb 103c 842f p3200 : P3200 [Zbook 17 G5 moble workstation]
-10de:1be0 0000 0000 gtx1080 : GP104BM [GeForce GTX 1080 Mobile]
+10de:1be0 0000 0000 gtx1080 : GP104M [GeForce GTX 1080 Mobile]
 10de:1be0 1028 07c0 gtx1080 : GeForce GTX 1080 Max-Q
 10de:1be0 1458 355b gtx1080 : GeForce GTX 1080 Max-Q
-10de:1be1 0000 0000 gtx1070 : GP104BM [GeForce GTX 1070 Mobile]
+10de:1be1 0000 0000 gtx1070 : GP104M [GeForce GTX 1070 Mobile]
 10de:1c02 0000 0000 gtx1060 : GP106 [GeForce GTX 1060 3GB]
 10de:1c03 0000 0000 gtx1060 : GP106 [GeForce GTX 1060 6GB]
 10de:1c04 0000 0000 gtx1060 : GP106 [GeForce GTX 1060 5GB]
@@ -3355,32 +3347,23 @@
 10de:1c21 0000 0000 gtx1050 : GP106M [GeForce GTX 1050 Ti Mobile]
 10de:1c22 0000 0000 gtx1050 : GP106M [GeForce GTX 1050 Mobile]
 10de:1c30 0000 0000 p2000 : GP106GL [Quadro P2000]
-10de:1c60 0000 0000 gtx1060 : GP106BM [GeForce GTX 1060 Mobile 6GB]
+10de:1c60 0000 0000 gtx1060 : GP106M [GeForce GTX 1060 Mobile 6GB]
 10de:1c60 103c 8390 gtx1060 : GeForce GTX 1060 Max-Q 6GB
-10de:1c61 0000 0000 gtx1050 : GP106BM [GeForce GTX 1050 Ti Mobile]
-10de:1c62 0000 0000 gtx1050 : GP106BM [GeForce GTX 1050 Mobile]
+10de:1c61 0000 0000 gtx1050 : GP106M [GeForce GTX 1050 Ti Mobile]
+10de:1c62 0000 0000 gtx1050 : GP106M [GeForce GTX 1050 Mobile]
 10de:1c81 0000 0000 gtx1050 : GP107 [GeForce GTX 1050]
 10de:1c82 0000 0000 gtx1050 : GP107 [GeForce GTX 1050 Ti]
 10de:1c83 0000 0000 gtx1050 : GP107 [GeForce GTX 1050 3GB]
 10de:1c8c 0000 0000 gtx1050 : GP107M [GeForce GTX 1050 Ti Mobile]
 10de:1c8d 0000 0000 gtx1050 : GP107M [GeForce GTX 1050 Mobile]
 10de:1c8f 0000 0000 gtx1050 : GP107M [GeForce GTX 1050 Ti Max-Q]
-10de:1c92 0000 0000 gtx1050 : GP107M [GeForce GTX 1050 Mobile]
 10de:1cb1 0000 0000 p1000 : GP107GL [Quadro P1000]
 10de:1cb2 0000 0000 p600 : GP107GL [Quadro P600]
 10de:1cb3 0000 0000 p400 : GP107GL [Quadro P400]
 10de:1cb6 0000 0000 p620 : GP107GL [Quadro P620]
 10de:1cba 0000 0000 p2000 : GP107GLM [Quadro P2000 Mobile]
-10de:1cba 103c 842c p2000 : P2000 [Zbook 15 G5 mobile workstation]
-10de:1cba 103c 842f p2000 : P2000 [Zbook 17 G5 mobile workstation]
 10de:1cbb 0000 0000 p1000 : GP107GLM [Quadro P1000 Mobile]
-10de:1cbb 103c 8429 p1000 : P1000 [Zbook Studio G5 mobile workstation]
-10de:1cbb 103c 842c p1000 : P1000 [Zbook 15 G5 mobile workstation]
-10de:1cbb 103c 842f p1000 : P1000 [Zbook 17 G5 mobile workstation]
-10de:1cbb 103c 8451 p1000 : P1000 [Zbook Studio x360 G5 mobile workstation]
 10de:1cbc 0000 0000 p600 : GP107GLM [Quadro P600 Mobile]
-10de:1ccc 0000 0000 gtx1050 : GP107BM [GeForce GTX 1050 Ti Mobile]
-10de:1ccd 0000 0000 gtx1050 : GP107BM [GeForce GTX 1050 Mobile]
 10de:1d01 0000 0000 gt1030 : GP108 [GeForce GT 1030]
 10de:1d10 0000 0000 mx150 : GP108M [GeForce MX150]
 10de:1d12 0000 0000 mx150 : GP108M [GeForce MX150]
@@ -3394,8 +3377,4 @@
 10de:1db7 0000 0000 v100 : GV100GL [Tesla V100 DGXS 32GB]
 10de:1dba 0000 0000 gv100 : GV100GL [Quadro GV100]
 10de:1dba 10de 12eb gv100 : TITAN V CEO Edition
-10de:1e07 0000 0000 rtx2080 : TU102 [GeForce RTX 2080 Ti]
-10de:1e3c 0000 0000 rtx6000 : TU102GL [Quadro RTX 6000]
-10de:1e87 0000 0000 rtx2080 : TU104 [GeForce RTX 2080]
-10de:1eab 0000 0000 rtx2080 : TU104M [GeForce RTX 2080 Mobile]
-10de:1f07 0000 0000 rtx2070 : TU106 [GeForce RTX 2070]
+10de:1e87 0000 0000 gtx1180 : GV104 [GeForce GTX 1180]
