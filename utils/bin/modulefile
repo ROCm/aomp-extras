@@ -1,0 +1,23 @@
+#%Module1.0
+##
+## aomp@0.7-1
+##
+module-whatis "aomp @0.7-1"
+
+proc ModulesHelp { } {
+puts stderr "This version of AOMP contains C/C++/Flang."
+}
+
+prepend-path PATH "/lib/lib/aomp-0.7-1/bin"
+prepend-path CMAKE_PREFIX_PATH "/lib/lib/aomp-0.7-1"
+prepend-path LIBRARY_PATH "/lib/lib/aomp-0.7-1/lib"
+prepend-path LD_LIBRARY_PATH "/lib/lib/aomp-0.7-1x/lib"
+prepend-path LD_RUN_PATH "/lib/lib/aomp-0.7-1/lib"
+# not sure what to put here: prepend-path PKG_CONFIG_PATH "/lib/lib/aomp-0.7-1/lib/pkgconfig"
+prepend-path MANPATH "/lib/lib/aomp-0.7-1/share/man"
+prepend-path CPATH "/lib/lib/aomp-0.7-1/include"
+setenv AOMP_ROOT "/lib/lib/aomp-0.7-1"
+setenv AOMP "/lib/lib/aomp-0.7-1"
+
+
+
