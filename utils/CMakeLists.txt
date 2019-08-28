@@ -108,7 +108,11 @@ add_custom_command( OUTPUT gputable.txt
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt)
 
-add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt)
+add_custom_command( OUTPUT modulefile
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile ${CMAKE_CURRENT_BINARY_DIR}/modulefile
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile)
+
+add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile)
 
 # We need prepare-builtins in the AOMP distribution to build bc libs for components
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
@@ -131,5 +135,6 @@ install(PROGRAMS
    ${CMAKE_CURRENT_BINARY_DIR}/aompversion
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/clang-ocl
+   ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile
    ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
    DESTINATION "bin")
