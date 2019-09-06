@@ -25,13 +25,13 @@ EXTERN char * printf_alloc(uint bufsz) {
   arg0 = (ulong) bufsz;
   hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_MALLOC),
     arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-  __builtin_amdgcn_s_barrier();
+  __builtin_amdgcn_wave_barrier();
   return (char *) result.arg1;
 }
 
 EXTERN int printf_execute(char * print_buffer, uint bufsz) { 
   ulong arg0,arg1,arg2,arg3,arg4,arg5,arg6,arg7;
-  __builtin_amdgcn_s_barrier();
+  __builtin_amdgcn_wave_barrier();
   arg0 = (ulong) bufsz;
   arg1 = (ulong) print_buffer ;
   hostcall_result_t result = hostcall_invoke(PACK_VERS(HOSTCALL_SERVICE_PRINTF),
