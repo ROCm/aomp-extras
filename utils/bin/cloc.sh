@@ -71,10 +71,10 @@ function usage(){
     -k        Keep temporary files
 
    Options with values:
-    -aomp      <path>           $AOMP, $HOME/rocm/aomp, or /opt/rocm/aomp
+    -aomp      <path>           $AOMP or _AOMP_INSTALL_DIR_ 
     -libgcn    <path>           $DEVICELIB or $AOMP/lib
     -cuda-path <path>           $CUDA_PATH or /usr/local/cuda
-    -atmipath  <path>           $ATMI_PATH or /opt/rocm/aomp
+    -atmipath  <path>           $ATMI_PATH or _AOMP_INSTALL_DIR_
     -mcpu      <cputype>        Default= value returned by mygpu
     -bclib     <bcfile>         Add a bc library for llvm-link
     -clopts    <compiler opts>  Addtional options for cl frontend
@@ -224,9 +224,9 @@ fi
 cdir=$(getdname $0)
 [ ! -L "$cdir/cloc.sh" ] || cdir=$(getdname `readlink "$cdir/cloc.sh"`)
 
-AOMP=${AOMP:-$HOME/rocm/aomp}
+AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
-   AOMP="/opt/rocm/aomp"
+   AOMP="_AOMP_INSTALL_DIR_"
 fi
 if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
@@ -237,7 +237,7 @@ fi
 DEVICELIB=${DEVICELIB:-$AOMP/lib}
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
-ATMI_PATH=${ATMI_PATH:-/opt/rocm/aomp}
+ATMI_PATH=${ATMI_PATH:-_AOMP_INSTALL_DIR_}
 
 # Determine which gfx processor to use, default to Vega (gfx900)
 if [ ! $LC_MCPU ] ; then 

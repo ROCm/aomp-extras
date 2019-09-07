@@ -73,13 +73,14 @@ string(LENGTH ${LLVM_PACKAGE_VERSION} vlen)
 math(EXPR vstart "${vlen}-5")
 string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 5 version_str)
 
-#FIXME:  This could be a loop
+set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
+
+# edit in place to preserve permissions
 add_custom_command( OUTPUT cloc.sh
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/cloc.sh ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/cloc.sh)
-# edit in place to preserve permissions
 add_custom_command( OUTPUT cloc.sh.phantom
-   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/" ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh > cloc.sh.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh > cloc.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh)
 
 add_custom_command( OUTPUT mymcpu
@@ -100,7 +101,7 @@ add_custom_command( OUTPUT clang-ocl
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/clang-ocl ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/clang-ocl)
 add_custom_command( OUTPUT clang-ocl.phantom
-   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/" ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl > clang-ocl.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl > clang-ocl.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl)
 
 # mymcpu reads the codename by searching for pciid from this generated gputable. 

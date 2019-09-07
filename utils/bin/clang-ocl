@@ -12,7 +12,7 @@ function version(){
 set -e
  
 PROGVERSION="X.Y-Z"
-OPENCL_ROOT=$AOMP
+OPENCL_ROOT=${AOMP:-_AOMP_INSTALL_DIR_}
 CLANG=${OPENCL_ROOT}/bin/clang
 LLVM_LINK=${OPENCL_ROOT}/bin/llvm-link
 
@@ -51,7 +51,7 @@ do
     shift
 done
 
-BITCODE_DIR=${OPENCL_ROOT}/lib/libdevice/gfx$gfxip
+BITCODE_DIR=${OPENCL_ROOT}/lib
  
 ${CLANG} -c -emit-llvm \
 -target $TRIPLE -x cl \
@@ -65,6 +65,7 @@ ${CLANG} -c -emit-llvm \
 -cl-kernel-arg-info \
 -cl-std=CL1.2 \
 -mllvm -amdgpu-early-inline-all \
+-Xclang -target-feature -Xclang -code-object-v3 \
 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups \
 -include ${OPENCL_ROOT}/include/opencl-c.h \
 ${options} -o ${output_file}.orig.bc ${input_file}
@@ -91,7 +92,7 @@ ${CLANG} \
 -m64 \
 -cl-kernel-arg-info \
 -mllvm -amdgpu-internalize-symbols -mllvm -amdgpu-early-inline-all \
--mllvm -enable-si-insert-waitcnts \
+-Xclang -target-feature -Xclang -code-object-v3 \
 ${options} -o ${output_file} ${output_file}.linked.bc
 
 # Remove extra files
