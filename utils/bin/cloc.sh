@@ -69,9 +69,10 @@ function usage(){
     -n        Dryrun, do nothing, show commands that would execute
     -h        Print this help message
     -k        Keep temporary files
+    -cl12     Use OpenCL 1.2 instead of default OpenCL 2.0
 
    Options with values:
-    -aomp      <path>           $AOMP or _AOMP_INSTALL_DIR_ 
+    -aomp      <path>           $AOMP or _AOMP_INSTALL_DIR_
     -libgcn    <path>           $DEVICELIB or $AOMP/lib
     -cuda-path <path>           $CUDA_PATH or /usr/local/cuda
     -atmipath  <path>           $ATMI_PATH or _AOMP_INSTALL_DIR_
@@ -95,7 +96,7 @@ function usage(){
 
    Command line options will take precedence over environment variables. 
 
-   Copyright (c) 2017 ADVANCED MICRO DEVICES, INC.
+   Copyright (c) 2019 ADVANCED MICRO DEVICES, INC.
 
 EOF
    exit 0 
@@ -176,6 +177,7 @@ while [ $# -gt 0 ] ; do
       -ll) 		GENLL=true;;
       -s) 		GENASM=true;;
       -noqp) 		NOQP=true;;
+      -cl12) 		CL12=true;;
       -noshared) 	NOSHARED=true;;
       -clopts) 		CLOPTS=$2; shift ;; 
       -cuopts) 		CUOPTS=$2; shift ;; 
@@ -259,13 +261,15 @@ fi
 BCFILES=""
 
 BCFILES="$BCFILES $DEVICELIB/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
-BCFILES="$BCFILES $DEVICELIB/libdevice/libm-amdgcn-$LC_MCPU.bc"
-BCFILES="$BCFILES $DEVICELIB/libdevice/libhostcall-amdgcn-$LC_MCPU.bc"
-BCFILES="$BCFILES $DEVICELIB/hip.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/hc.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/opencl.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/ocml.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/ockl.amdgcn.bc"
+BCFILES="$BCFILES $DEVICELIB/oclc_correctly_rounded_sqrt_off.amdgcn.bc"
+BCFILES="$BCFILES $DEVICELIB/oclc_daz_opt_on.amdgcn.bc"
+BCFILES="$BCFILES $DEVICELIB/oclc_finite_only_off.amdgcn.bc"
+BCFILES="$BCFILES $DEVICELIB/oclc_unsafe_math_off.amdgcn.bc"
+#BCFILES="$BCFILES $DEVICELIB/libdevice/libm-amdgcn-$LC_MCPU.bc"
+
 if [ -f $ATMI_PATH/lib/libdevice/libatmi.bc ]; then
     BCFILES="$BCFILES $ATMI_PATH/lib/libdevice/libatmi.bc"
 else 
@@ -274,8 +278,8 @@ else
   fi
 fi
 
-if [ $EXTRABCLIB ] ; then 
-   if [ -f $EXTRABCLIB ] ; then 
+if [ $EXTRABCLIB ] ; then
+   if [ -f $EXTRABCLIB ] ; then
 #     EXTRABCFILE will force QP off so LINKOPTS not used.
       BCFILES="$EXTRABCLIB $BCFILES"
    else
@@ -305,7 +309,12 @@ if [ $CUDACLANG ] ; then
    CMD_CLC=${CMD_CLC:-clang++ $CUOPTS $INCLUDES} 
 else
   INCLUDES="-I ${DEVICELIB}/include ${INCLUDES}"
-  CMD_CLC=${CMD_CLC:-clang -x cl -Xclang -cl-std=CL2.0 $CLOPTS $LINKOPTS $INCLUDES -include opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
+  if [ $CL12 ] ; then
+     CMD_CLC=${CMD_CLC:-clang -c -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$LC_MCPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.0/include/opencl-c.h $CLOPTS $LINKOPTS}
+  else
+     CMD_CLC=${CMD_CLC:-clang -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $AOMP/lib/clang/9.0.0/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
+
+   fi
 fi
 CMD_LLA=${CMD_LLA:-llvm-dis}
 CMD_ASM=${CMD_ASM:-llvm-as}
