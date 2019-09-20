@@ -1,10 +1,12 @@
 //===----------------------------------------------------------------------===//
-// hipdrt_printf_alloc.cl: device runtime routine for allocating print buffer
+// hipdrt_printf_alloc.hip: device runtime routine for allocating print buffer
 //
 // This file is dual licensed under the MIT and the University of Illinois Open
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
+
+#include "hip_minimal.h"
 
 #define HIP_VERSION 0
 #define HIP_RELEASE 0
