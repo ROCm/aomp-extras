@@ -27,7 +27,6 @@ set(libname "aompextras")
 project(${libname})
 
 file(GLOB ll_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ll")
-file(GLOB hip_auto_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 file(GLOB hip_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hip")
 file(GLOB ocl_sources "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cl")
 
@@ -73,22 +72,6 @@ separate_arguments(mcpus)
 foreach(mcpu ${mcpus})
 
 set(hip_bc_files)
-#  Compile all .cpp files in HIP automode
-# Consider adding -fcuda-rdc 
-set(hip_auto_cmd ${LLVM_COMPILER}/bin/clang++ -c -emit-llvm --hip-auto-headers=cuda_open 
-    --cuda-device-only --offload-arch=${mcpu} -O2 
-    -I${CMAKE_CURRENT_SOURCE_DIR}/../include 
-    -I${CMAKE_CURRENT_SOURCE_DIR}/src)
-foreach(file ${hip_auto_sources})
-    file(RELATIVE_PATH rfile ${CMAKE_CURRENT_SOURCE_DIR}/src ${file})
-    get_filename_component(fname ${rfile} NAME_WE)
-    set(bc_filename "${CMAKE_CURRENT_BINARY_DIR}/${fname}-${mcpu}.bc")
-    add_custom_command(
-      OUTPUT ${bc_filename}
-      COMMAND ${hip_auto_cmd} ${file} -o ${bc_filename}
-      DEPENDS ${file})
-    list(APPEND hip_bc_files ${bc_filename})
-endforeach()
 
 set(hip_cmd ${LLVM_COMPILER}/bin/clang++ -c -emit-llvm -x hip
     --cuda-device-only --offload-arch=${mcpu} -O2 
