@@ -134,6 +134,7 @@ install(PROGRAMS
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
    ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
+   ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompExtractRegion
    ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
    ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
    ${CMAKE_CURRENT_BINARY_DIR}/aompversion
