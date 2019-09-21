@@ -1,0 +1,47 @@
+#!/bin/bash
+function usage(){
+/bin/cat 2>&1 <<"EOF" 
+   Extract and disassemble AOMP region.
+
+   Usage: aompExtractRegion <options> <executable>
+
+   Options:
+    -h           Print this help message
+    -d <device>  Set GPU model to this device
+    -s           Save the extracted amdgcn section file
+
+   Copyright (c) 2019 ADVANCED MICRO DEVICES, INC.
+
+EOF
+   exit 1 
+}
+
+if [ -z "$1" ] ; then
+  usage
+fi
+savetempfile=0
+if [ -z ${AOMP+x} ]; then
+  aomp=/usr/lib/aomp
+else
+  aomp=$AOMP
+fi
+aompgpu=`/usr/lib/aomp/bin/mygpu`
+while [ $# -gt 0 ] ; do 
+   case "$1" in 
+      -d)               aompgpu=$2; shift ;;
+      -h)               usage ;; 
+      -help)            usage ;; 
+      --help)           usage ;; 
+      -s)               savetempfile=1 ;;
+      --)               shift ; break;;
+      *)                break;echo $1 ignored;
+   esac
+   shift
+done
+
+
+$aomp/bin/llvm-objcopy --dump-section .omp_offloading.amdgcn-amd-amdhsa=$$amd-out $1
+$aomp/bin/llvm-objdump -d -mcpu=$aompgpu $$amd-out
+if [ $savetempfile -eq 0 ] ; then
+  rm -f $$amd-out
+fi
