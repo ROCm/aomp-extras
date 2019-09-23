@@ -1,6 +1,14 @@
 #!/bin/bash
+# This string is changed by cmake when building and installing aomp utils.
+PROGVERSION="X.Y-Z"
+
+function version(){
+   echo $PROGVERSION
+   exit 0
+}
+
 function usage(){
-/bin/cat 2>&1 <<"EOF" 
+/bin/cat 2>&1 <<"EOF"
    Extract and disassemble AOMP region.
 
    Usage: aompExtractRegion <options> <executable>
@@ -9,11 +17,12 @@ function usage(){
     -h           Print this help message
     -d <device>  Set GPU model to this device
     -s           Save the extracted amdgcn section file
+    -version     Print the version of aompExtractRegion
 
    Copyright (c) 2019 ADVANCED MICRO DEVICES, INC.
 
 EOF
-   exit 1 
+   exit 1
 }
 
 if [ -z "$1" ] ; then
@@ -26,13 +35,17 @@ else
   aomp=$AOMP
 fi
 aompgpu=`/usr/lib/aomp/bin/mygpu`
-while [ $# -gt 0 ] ; do 
-   case "$1" in 
+while [ $# -gt 0 ] ; do
+   case "$1" in
       -d)               aompgpu=$2; shift ;;
-      -h)               usage ;; 
-      -help)            usage ;; 
-      --help)           usage ;; 
+      -h)               usage ;;
+      -help)            usage ;;
+      --help)           usage ;;
       -s)               savetempfile=1 ;;
+      -version)         version ;;
+      --version)        version ;;
+      --v)              version ;;
+      -v)               version ;;
       --)               shift ; break;;
       *)                break;echo $1 ignored;
    esac
