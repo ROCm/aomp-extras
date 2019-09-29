@@ -18,6 +18,7 @@ function usage(){
     -d <device>  Set GPU model to this device
     -s           Save the extracted amdgcn section file
     -version     Print the version of aompExtractRegion
+    -n           Dump the first few lines of image .note section
 
    Copyright (c) 2019 ADVANCED MICRO DEVICES, INC.
 
@@ -29,6 +30,7 @@ if [ -z "$1" ] ; then
   usage
 fi
 savetempfile=0
+dumpNotes=0
 if [ -z ${AOMP+x} ]; then
   aomp=/usr/lib/aomp
 else
@@ -42,6 +44,7 @@ while [ $# -gt 0 ] ; do
       -help)            usage ;;
       --help)           usage ;;
       -s)               savetempfile=1 ;;
+      -n)               dumpNotes=1 ;;
       -version)         version ;;
       --version)        version ;;
       --v)              version ;;
@@ -55,6 +58,9 @@ done
 
 $aomp/bin/llvm-objcopy --dump-section .omp_offloading.amdgcn-amd-amdhsa=$$amd-out $1
 $aomp/bin/llvm-objdump -d -mcpu=$aompgpu $$amd-out
+if [ $dumpNotes -ne 0 ] ; then
+  $aomp/bin/llvm-objdump -s --section=.note -mcpu=$aompgpu $$amd-out | head -10
+fi
 if [ $savetempfile -eq 0 ] ; then
   rm -f $$amd-out
 fi
