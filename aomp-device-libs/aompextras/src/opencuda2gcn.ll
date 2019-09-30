@@ -8,7 +8,7 @@ declare i32 @llvm.amdgcn.s.getreg(i32) #0
 declare i64 @llvm.amdgcn.s.memrealtime() #6
 
 ; Function Attrs: nounwind readnone
-declare i8 addrspace(2)* @llvm.amdgcn.dispatch.ptr() #0
+declare i8 addrspace(4)* @llvm.amdgcn.dispatch.ptr() #0
 
 ; Function Attrs: nounwind readnone
 declare i32 @llvm.amdgcn.workgroup.id.x() #0
