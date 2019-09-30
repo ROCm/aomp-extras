@@ -36,7 +36,7 @@ if [ -z ${AOMP+x} ]; then
 else
   aomp=$AOMP
 fi
-aompgpu=`/usr/lib/aomp/bin/mygpu`
+aompgpu=`$aomp/bin/mygpu`
 while [ $# -gt 0 ] ; do
    case "$1" in
       -d)               aompgpu=$2; shift ;;
