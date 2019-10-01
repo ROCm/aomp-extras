@@ -392,17 +392,6 @@ double __shfl(double var, int src_lane, int width = warpSize) {
     return tmp1;
 }
 
-#if 0
-// These are all the IR defined shuffles for future reference
-define i32 @nvvm.shfl.idx.i32(i32, i32, i32)
-define i32 @nvvm.shfl.up.i32(i32, i32, i32)
-define float @nvvm.shfl.up.f32(float, i32, i32)
-define i32 @nvvm.shfl.down.i32(i32, i32, i32)
-define float @nvvm.shfl.down.f32(float, i32, i32)
-define i32 @nvvm.shfl.bfly.i32(i32, i32, i32)
-define float @nvvm.shfl.bfly.f32(float, i32, i32)
-#endif 
-
 /*
 HIP specific device functions
 */
