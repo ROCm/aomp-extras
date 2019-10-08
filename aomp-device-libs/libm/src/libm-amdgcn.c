@@ -10,6 +10,9 @@
 #include <limits.h>
 #include "libm-amdgcn.h"
 #pragma omp declare target
+
+#define __private __attribute__((address_space(5)))
+
 unsigned long long __make_mantissa_base8(const char* tagp)
 {
     unsigned long long r = 0;
@@ -139,15 +142,7 @@ float fminf(float x, float y) { return __ocml_fmin_f32(x, y); }
 
 float fmodf(float x, float y) { return __ocml_fmod_f32(x, y); }
 
-float frexpf(float x, int* nptr)
-{
-    int tmp;
-    float r =
-        __ocml_frexp_f32(x, (__attribute__((address_space(5))) int*) &tmp);
-    *nptr = tmp;
-
-    return r;
-}
+float frexpf(float x, int* nptr){ return __ocml_frexp_f32(x, (__private int*) nptr); }
 
 float hypotf(float x, float y) { return __ocml_hypot_f32(x, y); }
 
@@ -205,15 +200,7 @@ long int lrintf(float x) { return __ocml_rint_f32(x); }
 
 long int lroundf(float x) { return __ocml_round_f32(x); }
 
-float modff(float x, float* iptr)
-{
-    float tmp;
-    float r =
-        __ocml_modf_f32(x, (__attribute__((address_space(5))) float*) &tmp);
-    *iptr = tmp;
-
-    return r;
-}
+float modff(float x, float* iptr){ return  __ocml_modf_f32(x, (__private float*) iptr); }
 
 float nanf(const char* tagp)
 {
@@ -266,15 +253,7 @@ float rcbrtf(float x) { return __ocml_rcbrt_f32(x); }
 
 float remainderf(float x, float y) { return __ocml_remainder_f32(x, y); }
 
-float remquof(float x, float y, int* quo)
-{
-    int tmp;
-    float r =
-        __ocml_remquo_f32(x, y, (__attribute__((address_space(5))) int*) &tmp);
-    *quo = tmp;
-
-    return r;
-}
+float remquof(float x, float y, int* quo){ return __ocml_remquo_f32(x, y, (__private int*) quo); }
 
 float rhypotf(float x, float y) { return __ocml_rhypot_f32(x, y); }
 
@@ -312,23 +291,9 @@ float scalbnf(float x, int n) { return __ocml_scalbn_f32(x, n); }
 
 int __signbitf(float x) { return __ocml_signbit_f32(x); }
 
-void sincosf(float x, float* sptr, float* cptr)
-{
-    float tmp;
+void sincosf(float x, float* sptr, float* cptr){ *sptr = __ocml_sincos_f32(x, (__private float*) cptr); }
 
-    *sptr =
-        __ocml_sincos_f32(x, (__attribute__((address_space(5))) float*) &tmp);
-    *cptr = tmp;
-}
-
-void sincospif(float x, float* sptr, float* cptr)
-{
-    float tmp;
-
-    *sptr =
-        __ocml_sincospi_f32(x, (__attribute__((address_space(5))) float*) &tmp);
-    *cptr = tmp;
-}
+void sincospif(float x, float* sptr, float* cptr){ *sptr = __ocml_sincospi_f32(x, (__private float*) cptr); }
 
 float sinf(float x) { return __ocml_sin_f32(x); }
 
@@ -459,14 +424,7 @@ float __powf(float x, float y) { return __ocml_pow_f32(x, y); }
 
 float __saturatef(float x) { return (x < 0) ? 0 : ((x > 1) ? 1 : x); }
 
-void __sincosf(float x, float* sptr, float* cptr)
-{
-    float tmp;
-
-    *sptr =
-        __ocml_sincos_f32(x, (__attribute__((address_space(5))) float*) &tmp);
-    *cptr = tmp;
-}
+void __sincosf(float x, float* sptr, float* cptr){ *sptr = __ocml_sincos_f32(x, (__private float*) &cptr); }
 
 float __sinf(float x) { return __llvm_amdgcn_sin_f32(x); }
 
@@ -542,15 +500,7 @@ double fmin(double x, double y) { return __ocml_fmin_f64(x, y); }
 
 double fmod(double x, double y) { return __ocml_fmod_f64(x, y); }
 
-double frexp(double x, int* nptr)
-{
-    int tmp;
-    double r =
-        __ocml_frexp_f64(x, (__attribute__((address_space(5))) int*) &tmp);
-    *nptr = tmp;
-
-    return r;
-}
+double frexp(double x, int* nptr){ return __ocml_frexp_f64(x, (__private int*) nptr); }
 
 double hypot(double x, double y) { return __ocml_hypot_f64(x, y); }
 
@@ -607,15 +557,7 @@ long int lrint(double x) { return __ocml_rint_f64(x); }
 
 long int lround(double x) { return __ocml_round_f64(x); }
 
-double modf(double x, double* iptr)
-{
-    double tmp;
-    double r =
-        __ocml_modf_f64(x, (__attribute__((address_space(5))) double*) &tmp);
-    *iptr = tmp;
-
-    return r;
-}
+double modf(double x, double* iptr){ return __ocml_modf_f64(x, (__private double*) iptr); }
 
 double nan(const char* tagp)
 {
@@ -671,15 +613,7 @@ double rcbrt(double x) { return __ocml_rcbrt_f64(x); }
 
 double remainder(double x, double y) { return __ocml_remainder_f64(x, y); }
 
-double remquo(double x, double y, int* quo)
-{
-    int tmp;
-    double r =
-        __ocml_remquo_f64(x, y, (__attribute__((address_space(5))) int*) &tmp);
-    *quo = tmp;
-
-    return r;
-}
+double remquo(double x, double y, int* quo){ return __ocml_remquo_f64(x, y, (__private int*) quo); }
 
 double rhypot(double x, double y) { return __ocml_rhypot_f64(x, y); }
 
@@ -718,21 +652,9 @@ int __signbit(double x) { return __ocml_signbit_f64(x); }
 
 double sin(double x) { return __ocml_sin_f64(x); }
 
-void sincos(double x, double* sptr, double* cptr)
-{
-    double tmp;
-    *sptr =
-        __ocml_sincos_f64(x, (__attribute__((address_space(5))) double*) &tmp);
-    *cptr = tmp;
-}
+void sincos(double x, double* sptr, double* cptr){ *sptr = __ocml_sincos_f64(x, (__private double*) cptr); }
 
-void sincospi(double x, double* sptr, double* cptr)
-{
-    double tmp;
-    *sptr = __ocml_sincospi_f64(
-        x, (__attribute__((address_space(5))) double*) &tmp);
-    *cptr = tmp;
-}
+void sincospi(double x, double* sptr, double* cptr){ *sptr = __ocml_sincospi_f64(x, (__private double*) cptr); }
 
 double sinh(double x) { return __ocml_sinh_f64(x); }
 
