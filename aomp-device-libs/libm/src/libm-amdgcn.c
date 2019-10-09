@@ -9,6 +9,9 @@
 #include <math.h>
 #include <limits.h>
 #include "libm-amdgcn.h"
+
+#define __private __attribute__((address_space(5)))
+
 #pragma omp declare target
 unsigned long long __make_mantissa_base8(const char* tagp)
 {
@@ -141,9 +144,10 @@ float fmodf(float x, float y) { return __ocml_fmod_f32(x, y); }
 
 float frexpf(float x, int* nptr)
 {
-    int tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private int tmp;
     float r =
-        __ocml_frexp_f32(x, (__attribute__((address_space(5))) int*) &tmp);
+        __ocml_frexp_f32(x, &tmp);
     *nptr = tmp;
 
     return r;
@@ -207,9 +211,10 @@ long int lroundf(float x) { return __ocml_round_f32(x); }
 
 float modff(float x, float* iptr)
 {
-    float tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private float tmp;
     float r =
-        __ocml_modf_f32(x, (__attribute__((address_space(5))) float*) &tmp);
+        __ocml_modf_f32(x, &tmp);
     *iptr = tmp;
 
     return r;
@@ -268,9 +273,10 @@ float remainderf(float x, float y) { return __ocml_remainder_f32(x, y); }
 
 float remquof(float x, float y, int* quo)
 {
-    int tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private int tmp;
     float r =
-        __ocml_remquo_f32(x, y, (__attribute__((address_space(5))) int*) &tmp);
+        __ocml_remquo_f32(x, y, &tmp);
     *quo = tmp;
 
     return r;
@@ -314,19 +320,19 @@ int __signbitf(float x) { return __ocml_signbit_f32(x); }
 
 void sincosf(float x, float* sptr, float* cptr)
 {
-    float tmp;
-
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private float tmp;
     *sptr =
-        __ocml_sincos_f32(x, (__attribute__((address_space(5))) float*) &tmp);
+        __ocml_sincos_f32(x, &tmp);
     *cptr = tmp;
 }
 
 void sincospif(float x, float* sptr, float* cptr)
 {
-    float tmp;
-
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private float tmp;
     *sptr =
-        __ocml_sincospi_f32(x, (__attribute__((address_space(5))) float*) &tmp);
+        __ocml_sincospi_f32(x, &tmp);
     *cptr = tmp;
 }
 
@@ -461,10 +467,10 @@ float __saturatef(float x) { return (x < 0) ? 0 : ((x > 1) ? 1 : x); }
 
 void __sincosf(float x, float* sptr, float* cptr)
 {
-    float tmp;
-
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private float tmp;
     *sptr =
-        __ocml_sincos_f32(x, (__attribute__((address_space(5))) float*) &tmp);
+        __ocml_sincos_f32(x, &tmp);
     *cptr = tmp;
 }
 
@@ -544,9 +550,10 @@ double fmod(double x, double y) { return __ocml_fmod_f64(x, y); }
 
 double frexp(double x, int* nptr)
 {
-    int tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private int tmp;
     double r =
-        __ocml_frexp_f64(x, (__attribute__((address_space(5))) int*) &tmp);
+        __ocml_frexp_f64(x, &tmp);
     *nptr = tmp;
 
     return r;
@@ -609,9 +616,10 @@ long int lround(double x) { return __ocml_round_f64(x); }
 
 double modf(double x, double* iptr)
 {
-    double tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private double tmp;
     double r =
-        __ocml_modf_f64(x, (__attribute__((address_space(5))) double*) &tmp);
+        __ocml_modf_f64(x, &tmp);
     *iptr = tmp;
 
     return r;
@@ -673,9 +681,10 @@ double remainder(double x, double y) { return __ocml_remainder_f64(x, y); }
 
 double remquo(double x, double y, int* quo)
 {
-    int tmp;
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private int tmp;
     double r =
-        __ocml_remquo_f64(x, y, (__attribute__((address_space(5))) int*) &tmp);
+        __ocml_remquo_f64(x, y, &tmp);
     *quo = tmp;
 
     return r;
@@ -720,17 +729,17 @@ double sin(double x) { return __ocml_sin_f64(x); }
 
 void sincos(double x, double* sptr, double* cptr)
 {
-    double tmp;
-    *sptr =
-        __ocml_sincos_f64(x, (__attribute__((address_space(5))) double*) &tmp);
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private double tmp;
+    *sptr = __ocml_sincos_f64(x, &tmp);
     *cptr = tmp;
 }
 
 void sincospi(double x, double* sptr, double* cptr)
 {
-    double tmp;
-    *sptr = __ocml_sincospi_f64(
-        x, (__attribute__((address_space(5))) double*) &tmp);
+    //FIXME: Added the address space cast to tmp to prevent globalization when building aomp-extras
+    static __private double tmp;
+    *sptr = __ocml_sincospi_f64(x, &tmp);
     *cptr = tmp;
 }
 
