@@ -252,7 +252,7 @@ fi
 
 LLVMOPT=${LLVMOPT:-2}
 
-CUOPTS=${CUOPTS:- -fcuda-rdc --cuda-device-only -Wno-unused-value --hip-auto-headers=cuda_open -O$LLVMOPT --cuda-gpu-arch=$LC_MCPU}
+CUOPTS=${CUOPTS:- -x hip -fcuda-rdc --cuda-device-only -Wno-unused-value -O$LLVMOPT --cuda-gpu-arch=$LC_MCPU}
 
 if [ $VV ]  ; then 
    VERBOSE=true
