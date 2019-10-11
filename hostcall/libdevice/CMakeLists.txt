@@ -48,8 +48,7 @@ set(HIPINC ${CMAKE_CURRENT_SOURCE_DIR}/../../../hip/include)
 #optimization level
 set(optimization_level 2)
 
-# Only list the sources we want to compile. Do not list needs_hostcall_buffer.hip
-# which is compiled and linked separately below.
+# Only list the sources we want to compile.
 set(sources
   ${CMAKE_CURRENT_SOURCE_DIR}/src/hostcall_stubs.hip
   ${CMAKE_CURRENT_SOURCE_DIR}/src/hostcall_invoke.cl)
@@ -203,19 +202,6 @@ foreach(mcpu ${mcpus})
   install(FILES ${OUTPUTDIR}/lib${libname}-${mcpu}.bc DESTINATION "lib-debug/libdevice")
   set(lastmcpu ${mcpu})
 endforeach()
-
-# Build needs_hostcall_buffer-amdgcn.bc. This bc is linked only when host services are needed.
-# It should not be linked to the SDL libhostcall*.bc SDLs because then it would appear as if all
-# applications need hostcall services.
-add_custom_command(
-  OUTPUT ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
-  COMMAND ${hip_cmd} ${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip -o ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/needs_hostcall_buffer.hip" libaompextras-amdgcn-${lastmcpu}-bc
-)
-add_custom_target(needs_hostcall_buffer-amdgcn ALL DEPENDS ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc)
-install(FILES ${OUTPUTDIR}/needs_hostcall_buffer-amdgcn.bc
-  DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}/libdevice"
-)
 
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/../include/hostcall_service_id.h"

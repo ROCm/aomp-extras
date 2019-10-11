@@ -286,8 +286,6 @@ get_return_value(__global header_t *header, __global payload_t *payload)
     return retval;
 }
 
-extern __global unsigned int needs_hostcall_buffer;
-
 /** \brief The implementation that should be hidden behind an ABI
  *
  *  The transaction is a wave-wide operation, where the service_id
@@ -306,20 +304,23 @@ hostcall_invoke( uint service_id,
                        ulong arg0, ulong arg1, ulong arg2, ulong arg3,
                        ulong arg4, ulong arg5, ulong arg6, ulong arg7)
 {
+// The global variable needs hostcall_buffer is used to detect that
+// host services are required. If this function is not inlined, the symbol
+// will not be present and the runtime can avoid initialising said support.
+__asm__("; hostcall_invoke: record need for hostcall support\n\t"
+        ".type needs_hostcall_buffer,@object\n\t"
+        ".global needs_hostcall_buffer\n\t"
+        ".comm needs_hostcall_buffer,4":::);
 
-   __ockl_hostcall_result_t retval;
-  if (needs_hostcall_buffer) {
-    __constant size_t* argptr = (__constant size_t *)__builtin_amdgcn_implicitarg_ptr();
-    __global buffer_t * buffer = (__global buffer_t *)argptr[3];
-    ulong packet_ptr = pop_free_stack(buffer);
-    __global header_t *header = get_header(buffer, packet_ptr);
-    __global payload_t *payload = get_payload(buffer, packet_ptr);
-    fill_packet(header, payload, service_id, arg0, arg1, arg2, arg3, arg4,
-                arg5, arg6, arg7);
-    push_ready_stack(buffer, packet_ptr);
-
-    retval = get_return_value(header, payload);
-    return_free_packet(buffer, packet_ptr);
-  }
+  __constant size_t* argptr = (__constant size_t *)__builtin_amdgcn_implicitarg_ptr();
+  __global buffer_t * buffer = (__global buffer_t *)argptr[3];
+  ulong packet_ptr = pop_free_stack(buffer);
+  __global header_t *header = get_header(buffer, packet_ptr);
+  __global payload_t *payload = get_payload(buffer, packet_ptr);
+  fill_packet(header, payload, service_id, arg0, arg1, arg2, arg3, arg4,
+              arg5, arg6, arg7);
+  push_ready_stack(buffer, packet_ptr);
+  __ockl_hostcall_result_t retval = get_return_value(header, payload);
+  return_free_packet(buffer, packet_ptr);
   return retval;
 }
