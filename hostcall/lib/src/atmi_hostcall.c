@@ -121,11 +121,11 @@ static buffer_t * atl_hcq_create_buffer(unsigned int num_packets) {
 hsa_status_t atmi_hostcall_version_check(unsigned int device_vrm) {
     uint device_version_release = device_vrm >> 6;
     if (device_version_release != HOSTCALL_VERSION_RELEASE ) {
-      printf("ERROR Incompatible device and host release\n      Device release(%hd)\n      Host release(%d)\n",device_version_release, HOSTCALL_VERSION_RELEASE);
+      printf("ERROR Incompatible device and host release\n      Device release(%d)\n      Host release(%d)\n",device_version_release, HOSTCALL_VERSION_RELEASE);
       return HSA_STATUS_ERROR;
     }
     if (device_vrm > HOSTCALL_VRM) {
-      printf("ERROR Incompatible device and host version \n       Device version(%hd)\n      Host version(%d)\n",device_vrm, HOSTCALL_VERSION_RELEASE);
+      printf("ERROR Incompatible device and host version \n       Device version(%d)\n      Host version(%d)\n",device_vrm, HOSTCALL_VERSION_RELEASE);
       return HSA_STATUS_ERROR;
     }
     if (device_vrm < HOSTCALL_VRM) {
