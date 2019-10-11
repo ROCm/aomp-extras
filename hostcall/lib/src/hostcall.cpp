@@ -168,7 +168,8 @@ typedef locked_accessor_t<critical_data_t> locked_critical_data_t;
  *  class. This ensures that the C++ interface is easy to expose if
  *  required.
  */
-class amd_hostcall_consumer_t {
+struct amd_hostcall_consumer_t {
+  private:
     signal_t doorbell;
     std::thread thread;
     amd_hostcall_error_handler_t handle_error;
