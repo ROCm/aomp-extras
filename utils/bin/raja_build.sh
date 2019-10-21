@@ -101,7 +101,8 @@ raja_source_dir=$aomp_repos/raja
 raja_url=https://github.com/llnl/raja
 mygpu=`$thisdir/mygpu`
 AOMP_GPU=${AOMP_GPU:-$mygpu}
-raja_build_dir=$HOME/raja_build.$AOMP_GPU
+RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
+RAJA_BUILD_DIR=${RAJA_BUILD_DIR:-$RAJA_BUILD_PREFIX/raja_build.$AOMP_GPU}
 
 mkdir -p $aomp_repos
 cd $aomp_repos
@@ -129,8 +130,8 @@ patchdir=$raja_source_dir/blt
 patchfile=$thisdir/blt.patch
 patchrepo
 
-mkdir -p $raja_build_dir
-cd $raja_build_dir
+mkdir -p $RAJA_BUILD_DIR
+cd $RAJA_BUILD_DIR
 
 cmake -DOpenMP_C_FLAGS="-w;--target=x86_64-pc-linux-gnu;-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DOpenMP_CXX_FLAGS="-w;--target=x86_64-pc-linux-gnu;-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
