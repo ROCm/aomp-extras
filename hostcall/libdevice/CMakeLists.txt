@@ -112,7 +112,8 @@ macro(add_hip_bc_library name dir)
     -I${CMAKE_CURRENT_SOURCE_DIR}/../include
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include
-    -I${HIPINC})
+    -I${HIPINC}
+    -I${ROCM_DIR}/include)
 
 #    --hip-auto-headers=cuda_open
 #    --hip-auto-headers=cuda
@@ -158,7 +159,8 @@ macro(add_ocl_bc_library name dir)
     -I${ROCDL_INC_OCML}
     -I${ROCDL_INC_IRIF}
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
-    -I${LLVM_COMPILER}/include)
+    -I${LLVM_COMPILER}/include
+    -I${ROCM_DIR}/include)
    set(cl_bc_files)
    file(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/../include/*.h")
 
