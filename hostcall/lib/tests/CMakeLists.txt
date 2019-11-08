@@ -1,6 +1,6 @@
 find_package(Threads REQUIRED)
 
-find_library(HSA_LIBRARY hsa-runtime64 PATHS /opt/rocm/lib)
+find_library(HSA_LIBRARY hsa-runtime64 PATHS ${ROCM_DIR}/lib)
 if (NOT EXISTS ${HSA_LIBRARY})
     message(STATUS "HSA runtime not found. Tests disabled.")
 endif()

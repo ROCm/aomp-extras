@@ -22,9 +22,6 @@ find_package(LLVM QUIET CONFIG
   PATHS
   ${CMAKE_INSTALL_PREFIX}
   ${AOMP}
-  $ENV{HOME}/rocm/aomp
-  /opt/rocm/aomp
-  /usr/lib/aomp
   ${CMAKE_CXX_COMPILER_DIR}
   NO_DEFAULT_PATH
 )

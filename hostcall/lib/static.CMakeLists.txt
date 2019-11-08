@@ -5,7 +5,7 @@ if (NOT UNIX)
     message(FATAL_ERROR "No Windows support due to lack of signals")
 endif()
 
-find_path(HSA_HEADER hsa/hsa.h PATHS /opt/rocm/include)
+find_path(HSA_HEADER hsa/hsa.h PATHS ${ROCM_DIR}/include)
 if (NOT EXISTS ${HSA_HEADER})
     message(FATAL_ERROR "Cannot find HSA headers. Please check the CMAKE_PREFIX_PATH")
 endif()
