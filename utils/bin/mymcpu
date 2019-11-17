@@ -211,8 +211,6 @@ if [ -L "$thisdir/mymcpu" ] ; then
       linkfile=$thisdir/$linkfile
    fi
    thisdir=$(getdname $linkfile)
-else
-   thisdir=$(getdname `readlink "$thisdir/mymcpu"`)
 fi
 GPUTABLE_FILE=${GPUTABLE_FILE:-$thisdir/gputable.txt}
 if [ -f /sbin/lspci ] ; then
