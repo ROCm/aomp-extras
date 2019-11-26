@@ -20,6 +20,7 @@ add_custom_target(aomputils ALL)
 find_package(LLVM QUIET CONFIG
   PATHS
   $ENV{AOMP}
+  ${LLVM_DIR}
   NO_DEFAULT_PATH
 )
 
