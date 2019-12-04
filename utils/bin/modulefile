@@ -8,16 +8,16 @@ proc ModulesHelp { } {
 puts stderr "This version of AOMP contains C/C++/Flang."
 }
 
-prepend-path PATH "/usr/lib/aomp-X.Y-Z/bin"
-prepend-path CMAKE_PREFIX_PATH "/usr/lib/aomp-X.Y-Z"
-prepend-path LIBRARY_PATH "/usr/lib/aomp-X.Y-Z/lib"
-prepend-path LD_LIBRARY_PATH "/usr/lib/aomp-X.Y-Zx/lib"
-prepend-path LD_RUN_PATH "/usr/lib/aomp-X.Y-Z/lib"
-# not sure what to put here: prepend-path PKG_CONFIG_PATH "/usr/lib/aomp-X.Y-Z/lib/pkgconfig"
-prepend-path MANPATH "/usr/lib/aomp-X.Y-Z/share/man"
-prepend-path CPATH "/usr/lib/aomp-X.Y-Z/include"
-setenv AOMP_ROOT "/usr/lib/aomp-X.Y-Z"
-setenv AOMP "/usr/lib/aomp-X.Y-Z"
+prepend-path PATH "/usr/lib/aomp_X.Y-Z/bin"
+prepend-path CMAKE_PREFIX_PATH "/usr/lib/aomp_X.Y-Z"
+prepend-path LIBRARY_PATH "/usr/lib/aomp_X.Y-Z/lib"
+prepend-path LD_LIBRARY_PATH "/usr/lib/aomp_X.Y-Zx/lib"
+prepend-path LD_RUN_PATH "/usr/lib/aomp_X.Y-Z/lib"
+# not sure what to put here: prepend-path PKG_CONFIG_PATH "/usr/lib/aomp_X.Y-Z/lib/pkgconfig"
+prepend-path MANPATH "/usr/lib/aomp_X.Y-Z/share/man"
+prepend-path CPATH "/usr/lib/aomp_X.Y-Z/include"
+setenv AOMP_ROOT "/usr/lib/aomp_X.Y-Z"
+setenv AOMP "/usr/lib/aomp_X.Y-Z"
 
 
 
