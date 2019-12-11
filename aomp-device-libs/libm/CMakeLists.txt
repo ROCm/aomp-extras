@@ -52,10 +52,15 @@ foreach(mcpu ${gpulist})
 	#  set(bundled_c_filename bundle_c.${mcpu}.bc)
   set(bc_filename libm_cpp.${mcpu}.bc)
   set(bc_c_filename libm_c.${mcpu}.bc)
+  set(cpu_target x86_64-pc-linux-gnu)
+  if(${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "ppc64le")
+    set(cpu_target powerpc64le-linux-gnu)
+  endif()
+
   set(omp_common_args
     -c 
     --cuda-device-only
-    -target x86_64-pc-linux-gnu 
+    -target ${cpu_target}
     -fopenmp 
     -fopenmp-targets=${triple}
     -Xopenmp-target=${triple}
