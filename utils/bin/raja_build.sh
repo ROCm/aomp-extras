@@ -133,8 +133,14 @@ patchrepo
 mkdir -p $RAJA_BUILD_DIR
 cd $RAJA_BUILD_DIR
 
-cmake -DOpenMP_C_FLAGS="-w;--target=x86_64-pc-linux-gnu;-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
-      -DOpenMP_CXX_FLAGS="-w;--target=x86_64-pc-linux-gnu;-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
+UNAMEP=`uname -p`
+AOMP_CPUTARGET="${UNAMEP}-pc-linux-gnu"
+if [ "$UNAMEP" == "ppc64le" ] ; then
+   AOMP_CPUTARGET="ppc64le-linux-gnu"
+fi
+
+cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
+      -DOpenMP_CXX_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DENABLE_TARGET_OPENMP=On \
       -DENABLE_CUDA=Off \
       -DENABLE_CLANG_CUDA=Off \
