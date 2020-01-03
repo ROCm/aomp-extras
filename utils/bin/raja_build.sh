@@ -108,20 +108,22 @@ mkdir -p $aomp_repos
 cd $aomp_repos
 if [ ! -d $raja_source_dir ] ; then 
   echo git clone --recursive -b master $raja_url 
-  git clone --recursive -b master $raja_url 
+  git clone --recursive -b master $raja_url
   if [ $? != 0 ] ; then 
      echo
      echo "ERROR  could not git clone $raja_url "
      echo
      exit 1
   fi
-else
-  cd $raja_source_dir
-  echo "git submodule update"
-  git submodule update
-  echo "git pull"
-  git pull
 fi
+cd $raja_source_dir
+echo "git submodule update"
+git submodule update
+echo "git pull"
+git pull
+#Reset to a specific commit as we do no support indirect function calls
+echo git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
 
 patchdir=$raja_source_dir
 patchfile=$thisdir/raja.patch
