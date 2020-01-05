@@ -139,7 +139,7 @@ function code2gpu(){
       ;;
       "vega20")   gpuname="gfx906"
       ;;
-      "MI100")   gpuname="MI100"
+      "MI100")   gpuname="gfx908"
       ;;
       "sm_30")   gpuname="sm_30"
       ;;
