@@ -38,6 +38,7 @@ SOFTWARE.
 #include "hostcall_impl.h"
 #include "hostcall_service_id.h"
 #include "hostcall_internal.h"
+#include "atmi_interop_hsa.h"
 #include "atmi_runtime.h"
 
 static int atl_hcq_size() { return atl_hcq_count ;}
@@ -147,12 +148,29 @@ void hostcall_register_all_handlers(amd_hostcall_consumer_t * c, void * cbdata);
 // These three external functions are called by atmi.
 // ATMI uses the header atmi_hostcall.h to reference these. 
 //
-unsigned long atmi_hostcall_assign_buffer(unsigned int minpackets, 
+unsigned long atmi_hostcall_assign_buffer(
 		hsa_queue_t * this_Q,
 		uint32_t device_id) {
     atl_hcq_element_t * llq_elem ;
     llq_elem  = atl_hcq_find_by_hsa_q(this_Q);
     if (!llq_elem) {
+       hsa_agent_t agent;
+       atmi_place_t place = ATMI_PLACE_GPU(0, device_id);
+       // FIXME: error check for this function
+       // atmi_status_t atmi_err =
+       atmi_interop_hsa_get_agent(place, &agent);
+       // ATMIErrorCheck(Could not get agent from place, atmi_err);
+       uint32_t numCu;
+       // hsa_status_t err =
+       hsa_agent_get_info(agent, (hsa_agent_info_t)
+           HSA_AMD_AGENT_INFO_COMPUTE_UNIT_COUNT, &numCu);
+       // ErrorCheck(Could not get number of cus, err);
+       uint32_t waverPerCu;
+       // err =
+       hsa_agent_get_info(agent, (hsa_agent_info_t)
+           HSA_AMD_AGENT_INFO_MAX_WAVES_PER_CU, &waverPerCu);
+       // ErrorCheck(Could not get number of waves per cu, err);
+       unsigned int minpackets = numCu * waverPerCu;
        //  For now, we create one bufer and one consumer per ATMI hsa queue
        buffer_t * hcb  = atl_hcq_create_buffer(minpackets);
        amd_hostcall_consumer_t * c ;
@@ -173,6 +191,10 @@ unsigned long atmi_hostcall_assign_buffer(unsigned int minpackets,
 hsa_status_t atmi_hostcall_init() {
    atl_hcq_count = 0;
    atl_hcq_front = atl_hcq_rear = NULL;
+   // Register atmi_hostcall_assign_buffer with ATMI so that it is
+   // called by ATMI during every task launch.
+   atmi_register_task_hostcall_handler(
+      (task_process_hostcall_handler_t)&atmi_hostcall_assign_buffer);
    return HSA_STATUS_SUCCESS;
 }
 
