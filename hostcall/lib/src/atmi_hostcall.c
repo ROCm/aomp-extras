@@ -193,9 +193,12 @@ hsa_status_t atmi_hostcall_init() {
    atl_hcq_front = atl_hcq_rear = NULL;
    // Register atmi_hostcall_assign_buffer with ATMI so that it is
    // called by ATMI during every task launch.
-   atmi_register_task_hostcall_handler(
-      (task_process_hostcall_handler_t)&atmi_hostcall_assign_buffer);
-   return HSA_STATUS_SUCCESS;
+   atmi_status_t status = atmi_register_task_hostcall_handler(
+      (atmi_task_hostcall_handler_t)&atmi_hostcall_assign_buffer);
+   if(status == ATMI_STATUS_SUCCESS)
+    return HSA_STATUS_SUCCESS;
+   else
+    return HSA_STATUS_ERROR;
 }
 
 hsa_status_t atmi_hostcall_terminate() {
