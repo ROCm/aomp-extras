@@ -117,6 +117,10 @@ if [ ! -d $raja_source_dir ] ; then
   fi
 fi
 cd $raja_source_dir
+#Reset to a specific commit as we do no support indirect function calls
+echo git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+
 echo "git submodule update"
 git submodule update
 echo "git pull"
