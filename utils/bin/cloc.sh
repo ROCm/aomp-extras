@@ -297,8 +297,7 @@ if [ "$filetype" != "cl" ]  ; then
    else
       CUDACLANG=true
       if [ ! -d $CUDA_PATH ] ; then 
-         echo "ERROR:  No CUDA_PATH directory at $CUDA_PATH "
-         exit $DEADRC
+         echo "Warning:  No CUDA_PATH directory at $CUDA_PATH "
       fi
    fi
 fi
