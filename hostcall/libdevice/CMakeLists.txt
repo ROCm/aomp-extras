@@ -112,8 +112,6 @@ macro(add_hip_bc_library name dir)
     -I${HIPINC}
     -I${ROCM_DIR}/include)
 
-#    --hip-auto-headers=cuda_open
-#    --hip-auto-headers=cuda
   set(bc1_files)
 
   foreach(file ${ARGN})
