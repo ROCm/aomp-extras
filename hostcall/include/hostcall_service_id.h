@@ -45,7 +45,7 @@ SOFTWARE.
 #define HOSTCALL_VERSION_RELEASE ((HOSTCALL_VERSION * 64) + HOSTCALL_RELEASE)
 typedef short hostcall_version_t;
 
-#define PACK_VERS(x) ((uint) HOSTCALL_VRM << 16) | ((uint) x)
+#define PACK_VERS(x) ((uint32_t) HOSTCALL_VRM << 16) | ((uint32_t) x)
 
 enum hostcall_service_id {
   HOSTCALL_SERVICE_UNUSED,
