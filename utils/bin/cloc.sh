@@ -297,7 +297,7 @@ if [ "$filetype" != "cl" ]  ; then
    else
       CUDACLANG=true
       if [ ! -d $CUDA_PATH ] ; then 
-         echo "Warning:  No CUDA_PATH directory at $CUDA_PATH "
+         echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
       fi
    fi
 fi
