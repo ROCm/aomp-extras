@@ -48,12 +48,6 @@ send_signal(hsa_signal_t signal)
 }
 
 static ulong
-get_ptr_tag(ulong ptr, uint index_size)
-{
-    return ptr >> index_size;
-}
-
-static ulong
 get_ptr_index(ulong ptr, uint index_size)
 {
     return ptr & (((ulong)1 << index_size) - 1);
