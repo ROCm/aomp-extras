@@ -118,7 +118,7 @@ add_custom_command( OUTPUT modulefile
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile ${CMAKE_CURRENT_BINARY_DIR}/modulefile
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile)
 add_custom_command( OUTPUT modulefile.phantom
-   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
 add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)

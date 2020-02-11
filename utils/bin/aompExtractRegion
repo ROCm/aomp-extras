@@ -32,7 +32,7 @@ fi
 savetempfile=0
 dumpNotes=0
 if [ -z ${AOMP+x} ]; then
-  aomp=/usr/lib/aomp
+  aomp=_AOMP_INSTALL_DIR_
 else
   aomp=$AOMP
 fi
