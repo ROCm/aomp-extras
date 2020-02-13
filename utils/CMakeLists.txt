@@ -88,6 +88,13 @@ add_custom_command( OUTPUT raja_build.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh > raja_build.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh)
 
+add_custom_command( OUTPUT rocc
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/rocc ${CMAKE_CURRENT_BINARY_DIR}/rocc
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/rocc)
+add_custom_command( OUTPUT rocc.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/rocc  > rocc.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rocc)
+
 add_custom_command( OUTPUT aompExtractRegion
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompExtractRegion ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompExtractRegion)
@@ -128,7 +135,7 @@ add_custom_command( OUTPUT modulefile.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
-add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
+add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom rocc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
 
 # We need prepare-builtins in the AOMP distribution to build bc libs for components
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
@@ -147,6 +154,7 @@ install(PROGRAMS
 	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
    ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
    ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
+   ${CMAKE_CURRENT_BINARY_DIR}/rocc
    ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
    ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
    ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
