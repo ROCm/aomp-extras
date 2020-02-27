@@ -103,10 +103,10 @@ AOMP_GPU=${AOMP_GPU:-$mygpu}
 RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
 
 if [ $1 == "hip" ] ; then
-    RAJA_BACKEND="hip"
+    raja_backend="hip"
     echo "HIP backend enabled"
 else
-    RAJA_BACKEND="openmp"
+    raja_backend="openmp"
     echo "OpenMP Target backend enabled"
 fi
 
@@ -152,7 +152,7 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
    AOMP_CPUTARGET="ppc64le-linux-gnu"
 fi
 
-if [ "$RAJA_BACKEND" == "hip" ] ; then
+if [ "$raja_backend" == "hip" ] ; then
     cmake -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
 else
 cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
