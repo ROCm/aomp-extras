@@ -1,0 +1,425 @@
+#!/bin/bash
+#
+#  rocc:  Compile OpenMP or HIP source files for the AOMP compiler. 
+#
+#  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+#
+PROGVERSION="X.Y-Z"
+#
+# Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.  
+# 
+# AMD is granting you permission to use this software and documentation (if any) (collectively, the 
+# Materials) pursuant to the terms and conditions of the Software License Agreement included with the 
+# Materials.  If you do not have a copy of the Software License Agreement, contact your AMD 
+# representative for a copy.
+# 
+# You agree that you will not reverse engineer or decompile the Materials, in whole or in part, except for 
+# example code which is provided in source code form and as allowed by applicable law.
+# 
+# WARRANTY DISCLAIMER: THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY 
+# KIND.  AMD DISCLAIMS ALL WARRANTIES, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING BUT NOT 
+# LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+# PURPOSE, TITLE, NON-INFRINGEMENT, THAT THE SOFTWARE WILL RUN UNINTERRUPTED OR ERROR-
+# FREE OR WARRANTIES ARISING FROM CUSTOM OF TRADE OR COURSE OF USAGE.  THE ENTIRE RISK 
+# ASSOCIATED WITH THE USE OF THE SOFTWARE IS ASSUMED BY YOU.  Some jurisdictions do not 
+# allow the exclusion of implied warranties, so the above exclusion may not apply to You. 
+# 
+# LIMITATION OF LIABILITY AND INDEMNIFICATION:  AMD AND ITS LICENSORS WILL NOT, 
+# UNDER ANY CIRCUMSTANCES BE LIABLE TO YOU FOR ANY PUNITIVE, DIRECT, INCIDENTAL, 
+# INDIRECT, SPECIAL OR CONSEQUENTIAL DAMAGES ARISING FROM USE OF THE SOFTWARE OR THIS 
+# AGREEMENT EVEN IF AMD AND ITS LICENSORS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH 
+# DAMAGES.  In no event shall AMD's total liability to You for all damages, losses, and 
+# causes of action (whether in contract, tort (including negligence) or otherwise) 
+# exceed the amount of $100 USD.  You agree to defend, indemnify and hold harmless 
+# AMD and its licensors, and any of their directors, officers, employees, affiliates or 
+# agents from and against any and all loss, damage, liability and other expenses 
+# (including reasonable attorneys' fees), resulting from Your use of the Software or 
+# violation of the terms and conditions of this Agreement.  
+# 
+# U.S. GOVERNMENT RESTRICTED RIGHTS: The Materials are provided with "RESTRICTED RIGHTS." 
+# Use, duplication, or disclosure by the Government is subject to the restrictions as set 
+# forth in FAR 52.227-14 and DFAR252.227-7013, et seq., or its successor.  Use of the 
+# Materials by the Government constitutes acknowledgement of AMD's proprietary rights in them.
+# 
+# EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the 
+# Software License Agreement.
+# 
+function usage(){
+/bin/cat 2>&1 <<"EOF" 
+
+   rocc: Compile OpenMP or HIP source files for the AOMP compiler
+
+   Usage: rocc [ options ] filename
+
+   Options without values:
+    -ll       Generate LLVM IR for compiler passes
+    -s        Generate dissassembled gcn
+    -g        Generate debug information
+    -version  Display version of aomp then exit
+    -v        Verbose, just print commands
+    -vv       Very verbose, pass -v to commands
+    -n        Dryrun, do nothing, show commands that would execute
+    -h        Print this help message
+    -k        Keep temporary files
+    -c        Compile to object code only
+
+   Options with values:
+    -aomp      <path>           $AOMP or _AOMP_INSTALL_DIR_
+    -cuda-path <path>           $CUDA_PATH or /usr/local/cuda
+    -I         <include dir>    Provide one directory per -I option
+    -O         <LLVM opt>       LLVM optimization level
+    -o         <outfilename>    Default=a.out
+    -t         <tdir>           Temporary directory or intermediate files
+                                Default=/tmp/aomp-tmp-$$
+    --amdgpu-target  <cputype>  Default= value returned by mygpu
+
+   Examples:
+    rocc my.c              /* Compiles with OpenMP to create a.out */
+    rocc my.hip -o myhip   /* Compiles with HIP to create myhip */
+
+   Note: Instead of providing these command line options:
+     -aomp, -cuda-path, --amdgpu-target,
+     you may set these environment variables, respectively:
+     AOMP, CUDA_PATH, AOMP_GPU
+
+   Command line options will take precedence over environment variables. 
+
+   Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.
+
+EOF
+   exit 0 
+}
+
+DEADRC=12
+
+#  Utility Functions
+function do_err(){
+   if [ $NEWTMPDIR ] ; then 
+      if [ $KEEPTDIR ] ; then 
+         cp -rp $TMPDIR $OUTDIR
+         [ $VERBOSE ] && echo "#Info:  Temp files copied to $OUTDIR/$TMPNAME"
+      fi
+      rm -rf $TMPDIR
+   else 
+      if [ $KEEPTDIR ] ; then 
+         [ $VERBOSE ] && echo "#Info:  Temp files kept in $TMPDIR"
+      fi 
+   fi
+   [ $VV ] && echo "#Info:  Done"
+   exit $1
+}
+
+function version(){
+   echo $PROGVERSION
+   exit 0
+}
+
+function runcmd(){
+   THISCMD=$1
+   if [ $DRYRUN ] ; then
+      echo "$THISCMD"
+   else 
+      [ $VERBOSE ] && echo "$THISCMD"
+      $THISCMD
+      rc=$?
+      if [ $rc != 0 ] ; then 
+         echo "ERROR:  The following command failed with return code $rc."
+         echo "        $THISCMD"
+         do_err $rc
+      fi
+   fi
+}
+
+function getdname(){
+   local __DIRN=`dirname "$1"`
+   if [ "$__DIRN" = "." ] ; then 
+      __DIRN=$PWD; 
+   else
+      if [ ${__DIRN:0:1} != "/" ] ; then 
+         if [ ${__DIRN:0:2} == ".." ] ; then 
+               __DIRN=`dirname $PWD`/${__DIRN:3}
+         else
+            if [ ${__DIRN:0:1} = "." ] ; then 
+               __DIRN=$PWD/${__DIRN:2}
+            else
+               __DIRN=$PWD/$__DIRN
+            fi
+         fi
+      fi
+   fi
+   echo $__DIRN
+}
+
+#  --------  The main code starts here -----
+INCLUDES=""
+#  Argument processing
+while [ $# -gt 0 ] ; do 
+   case "$1" in 
+      -q)               QUIET=true;;
+      --quiet)          QUIET=true;;
+      -k) 		KEEPTDIR=true;; 
+      -n) 		DRYRUN=true;; 
+      -c) 		GEN_OBJECT_ONLY=true;; 
+      -g) 		GEN_DEBUG=true;; 
+      -ll) 		GENLL=true;;
+      -s) 		GENASM=true;;
+      -noqp) 		NOQP=true;;
+      -cl12) 		CL12=true;;
+      -noshared) 	NOSHARED=true;;
+      -cuopts) 		CUOPTS=$2; shift ;; 
+      -I) 		INCLUDES="$INCLUDES -I $2"; shift ;; 
+      -O) 		LLVMOPT=$2; shift ;; 
+      -O3) 		LLVMOPT=3 ;; 
+      -O2) 		LLVMOPT=2 ;; 
+      -O1) 		LLVMOPT=1 ;; 
+      -O0) 		LLVMOPT=0 ;; 
+      -o) 		OUTFILE=$2; shift ;; 
+      -t)		TMPDIR=$2; shift ;; 
+      --amdgpu-target)  AOMP_GPU=$2; shift ;;
+      -aomp)            AOMP=$2; shift ;;
+      -triple)          TARGET_TRIPLE=$2; shift ;;
+      -cuda-path)       CUDA_PATH=$2; shift ;;
+      -h) 	        usage ;; 
+      -help) 	        usage ;; 
+      --help) 	        usage ;; 
+      -version) 	version ;; 
+      --version) 	version ;; 
+      -v) 		VERBOSE=true;; 
+      -vv) 		VV=true;; 
+      --) 		shift ; break;;
+      *) 		break;echo $1 ignored;
+   esac
+   shift
+done
+
+# The above while loop is exited when last string with a "-" is processed
+# The rest of the args are input files or the -o argument
+FIRST_INPUT_FILE_NAME=$1
+shift
+
+
+#  Look for other input files
+while [ ! -z $1 ] && [ "$1" != "-o" ] ; do
+   NEXT_INPUT_FILE=$1
+   shift
+   if [ ! -e "$NEXT_INPUT_FILE" ]  ; then 
+      echo "ERROR:  The file $NEXT_INPUT_FILE does not exist."
+      exit $DEADRC
+   fi
+   OTHER_INPUT_FILES="$OTHER_INPUT_FILES $NEXT_INPUT_FILE"
+done
+
+#  Allow output specifier after the input files
+if [ "$1" == "-o" ]; then 
+   OUTFILE=$2; shift ; shift; 
+fi
+
+cdir=$(getdname $0)
+[ ! -L "$cdir/rocc" ] || cdir=$(getdname `readlink "$cdir/rocc"`)
+
+AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
+if [ ! -d $AOMP ] ; then
+   AOMP="_AOMP_INSTALL_DIR_"
+fi
+if [ ! -d $AOMP ] ; then
+   echo "ERROR: AOMP not found at $AOMP"
+   echo "       Please install AOMP or set environment variable AOMP"
+   exit 1
+fi
+
+TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
+CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
+
+# Determine which gfx processor to use, default to Vega (gfx900)
+if [ ! $AOMP_GPU ] ; then 
+   # Use the mygpu in pair with this script, no the pre-installed one.
+   AOMP_GPU=`$cdir/mygpu -d gfx900`
+   if [ "$AOMP_GPU" == "" ] ; then 
+      AOMP_GPU="gfx900"
+   fi
+fi
+
+if [ "${AOMP_GPU:0:3}" == "sm_" ] ; then 
+   TARGET_TRIPLE="nvptx64-nvidia-cuda"
+fi
+
+LLVMOPT=${LLVMOPT:-3}
+
+if [ $VV ]  ; then 
+   VERBOSE=true
+fi
+
+RUNDATE=`date`
+
+if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then 
+   echo "ERROR:  No File specified."
+   exit $DEADRC
+fi
+if [ ! -e "$FIRST_INPUT_FILE_NAME" ]  ; then 
+   echo "ERROR:  The file $FIRST_INPUT_FILE_NAME does not exist."
+   exit $DEADRC
+fi
+
+
+# Parse FIRST_INPUT_FILE_NAME for filetype, directory, and filename
+INPUT_FTYPE=${FIRST_INPUT_FILE_NAME##*\.}
+INDIR=$(getdname $FIRST_INPUT_FILE_NAME)
+FILENAME=${FIRST_INPUT_FILE_NAME##*/}
+# FNAME has the filetype extension removed, used for naming intermediate filenames
+FNAME=${FILENAME%.*}
+
+if [ -z $OUTFILE ] ; then 
+#  Output file not specified so use input directory
+   OUTDIR=$INDIR
+   if [ $GEN_OBJECT_ONLY ] ; then
+      OUTFILE=${FNAME}.o
+   else
+      OUTFILE="a.out"
+   fi
+else 
+#  Use the specified OUTFILE
+   OUTDIR=$(getdname $OUTFILE)
+   OUTFILE=${OUTFILE##*/}
+fi 
+
+sdir=$(getdname $0)
+[ ! -L "$sdir/rocc" ] || sdir=$(getdname `readlink "$sdir/rocc"`)
+ROCC_DIR=$sdir
+
+TMPNAME="aomp-tmp-$$"
+TMPDIR=${TMPDIR:-/tmp/$TMPNAME}
+if [ -d $TMPDIR ] ; then 
+   KEEPTDIR=true
+else 
+   if [ $DRYRUN ] ; then
+      echo "mkdir -p $TMPDIR"
+   else
+      mkdir -p $TMPDIR
+      NEWTMPDIR=true
+   fi
+fi
+
+# Be sure not to delete the output directory
+if [ $TMPDIR == $OUTDIR ] ; then 
+   KEEPTDIR=true
+fi
+if [ ! -d $TMPDIR ] && [ ! $DRYRUN ] ; then 
+   echo "ERROR:  Directory $TMPDIR does not exist or could not be created"
+   exit $DEADRC
+fi 
+if [ ! -d $OUTDIR ] && [ ! $DRYRUN ]  ; then 
+   echo "ERROR:  The output directory $OUTDIR does not exist"
+   exit $DEADRC
+fi 
+
+#  Print Header block
+if [ $VERBOSE ] ; then 
+   echo "#   "
+   echo "#Info:  AOMP Version:	$PROGVERSION" 
+   echo "#Info:  AOMP Path:	$AOMP"
+   echo "#Info:  Run date:	$RUNDATE" 
+   echo "#Info:  Input file:	$INDIR/$FILENAME"
+   echo "#Info:  Code object:	$OUTDIR/$OUTFILE"
+   [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR" 
+   echo "#   "
+fi 
+
+UNAMEP=`uname -p`
+HOST_TARGET="$UNAMEP-pc-linux-gnu"
+if [ "$UNAMEP" == "ppc64le" ] ; then 
+  HOST_TARGET="ppc64le-linux-gnu"
+fi
+
+#  Pick the compiler based on filetype 
+COMPILER_BIN_DIR="$AOMP/bin"
+
+if [ "$INPUT_FTYPE" == "cu" ] ; then 
+   echo "WARNING: CUDA WITH NVCC IN rocc IS UNTESTED "
+   if [ ! -d $CUDA_PATH ] ; then 
+      echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
+      exit $DEADRC 
+   fi
+   CLANG_CMD="nvcc"
+   INCLUDES="-I $CUDA_PATH/include ${INCLUDES}"
+   CLANG_ARGS="$CLANG_ARGS $INCLUDES"
+   COMPILER_BIN_DIR="$CUDA_PATH/bin"
+
+elif [ "$INPUT_FTYPE" == "cl" ] ; then 
+   echo "WARNING: OPENCL IN rocc IS UNTESTED "
+   CLANG_CMD="clang-ocl"
+   if [ $CL12 ] ; then
+      CLANG_ARGS="$CLANG_ARGS -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$AOMP_GPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.1/include/opencl-c.h $CLOPTS $LINKOPTS"
+   else
+      CLANG_ARGS="$CLANG_ARGS -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $AOMP/lib/clang/9.0.1/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}"
+   fi
+
+elif [ "$INPUT_FTYPE" == "cpp" ] ; then 
+   # OpenMP c++
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_CMD="clang++"
+
+elif [ "$INPUT_FTYPE" == "c" ] ; then 
+   # OpenMP c
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_CMD="clang"
+
+elif [ "$INPUT_FTYPE" == "f" ] ; then 
+   # OpenMP FORTRAN
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_CMD="flang"
+
+elif [ "$INPUT_FTYPE" == "hip" ] ; then 
+   echo "WARNING: HIP IN rocc IS UNTESTED "
+   CLANG_ARGS="-O$LLVMOPT --amdgpu-target=$AOMP_GPU -lamdhip64 -fopenmp"
+   CLANG_CMD="hipcc"
+fi
+
+if [ $VV ]  ; then 
+   CLANG_ARGS="-v $CLANG_ARGS"
+fi
+if [ $GEN_OBJECT_ONLY ]  ; then 
+   CLANG_ARGS="-c $CLANG_ARGS"
+fi
+if [ $GEN_DEBUG ]  ; then 
+   CLANG_ARGS="$CLANG_ARGS -g"
+fi
+if [ $GENLL ] ; then
+   echo "ERROR:   -ll option not supported yet"
+   exit $DEADRC
+fi
+if [ $GENASM ] ; then
+   echo "ERROR:   -s option not supported yet"
+   exit $DEADRC
+fi
+
+rc=0
+runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS -o $OUTDIR/$OUTFILE $INDIR/$FILENAME $OTHER_INPUT_FILES"
+
+#  This code needs to be cleaned up 
+if [ $GENLL ] ; then
+         runcmd "$AOMP/bin/llvm-dis -o $TMPDIR/$FNAME.ll $TMPDIR/$FNAME.bc"
+         if [ "$OUTDIR" != "$TMPDIR" ] ; then
+            runcmd "cp $TMPDIR/$FNAME.ll $OUTDIR/$FNAME.ll"
+         fi
+fi
+
+if [ $GENASM ] ; then
+      textstarthex=`readelf -S -W  $OUTDIR/$OUTFILE | grep .text | awk '{print $6}'`
+      textstart=$((0x$textstarthex))
+      textszhex=`readelf -S -W $OUTDIR/$OUTFILE | grep .text | awk '{print $7}'`
+      textsz=$((0x$textszhex))
+      countclause=" count=$textsz skip=$textstart"
+      dd if=$OUTDIR/$OUTFILE of=$OUTDIR/$FNAME.raw bs=1 $countclause 2>/dev/null
+      hexdump -v -e '/1 "0x%02X "' $OUTDIR/$FNAME.raw | $AOMP/bin/llvm-mc -arch=amdgcn -amdgpu-target=$AOMP_GPU -disassemble >$OUTDIR/$FNAME.s 2>$OUTDIR/$FNAME.s.err
+      rm $OUTDIR/$FNAME.raw
+      if [ "$AOMP_GPU" == "kaveri" ] ; then 
+         echo "WARNING:  Disassembly not supported for Kaveri. See $FNAME.s.err"
+      else
+         rm $OUTDIR/$FNAME.s.err
+         echo "#INFO File $OUTDIR/$FNAME.s contains amdgcn assembly"
+      fi
+fi
+
+# cleanup
+do_err 0
+exit 0
