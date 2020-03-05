@@ -95,7 +95,7 @@ function patchrepo(){
 
 
 thisdir=$(getdname $0)
-AOMP=${AOMP:-/usr/lib/aomp}
+AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 aomp_repos=$HOME/git/aomp
 raja_source_dir=$aomp_repos/raja
 raja_url=https://github.com/llnl/raja

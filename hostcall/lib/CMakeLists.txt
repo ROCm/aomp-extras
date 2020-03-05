@@ -11,6 +11,7 @@ if (NOT EXISTS ${HSA_HEADER})
 endif()
 message(STATUS "Using HSA headers from ${HSA_HEADER}")
 include_directories(${HSA_HEADER})
+include_directories(${HSA_HEADER}/hsa)
 
 set(WITH_HSA 1)
 configure_file(include/hostcall-config.h.in include/hostcall-config.h)
