@@ -38,8 +38,7 @@ SOFTWARE.
 #include "hostcall_impl.h"
 #include "hostcall_service_id.h"
 #include "hostcall_internal.h"
-#include "atmi_interop_hsa.h"
-#include "atmi_runtime.h"
+#include "minimal_atmi.h"
 
 static int atl_hcq_size() { return atl_hcq_count ;}
 
@@ -104,8 +103,8 @@ static buffer_t * atl_hcq_create_buffer(unsigned int num_packets) {
     size_t size  = amd_hostcall_get_buffer_size(num_packets);
     uint32_t align = amd_hostcall_get_buffer_alignment();
     void *newbuffer = NULL;
-    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,0,0);
-    atmi_status_t err = atmi_malloc(&newbuffer, size+align, place);
+    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,0,0);(void)place;
+    atmi_status_t err = atmi_malloc_hostcall(&newbuffer, size+align);
     if (!newbuffer || (err != ATMI_STATUS_SUCCESS) ) {
 	    printf("call to atmi_malloc failed \n");
 	    abort();
@@ -211,7 +210,7 @@ hsa_status_t atmi_hostcall_terminate() {
          c = this_front->consumer;
          amd_hostcall_destroy_consumer(c);
       }
-      atmi_free(this_front->hcb);
+      atmi_free_hostcall(this_front->hcb);
       last_front = this_front;
       this_front = this_front->next_ptr;
       free(last_front);

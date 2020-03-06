@@ -35,22 +35,22 @@ SOFTWARE.
 #include "hostcall_impl.h"
 #include "hostcall_service_id.h"
 #include "hostcall_internal.h"
-#include "atmi_runtime.h"
- 
+#include "minimal_atmi.h"
+
 void handler_HOSTCALL_SERVICE_PRINTF(void *cbdata, uint32_t service, uint64_t *payload) {
     size_t bufsz          = (size_t) payload[0];
     char* device_buffer   = (char*) payload[1];
     amd_hostcall_error_t err = hostcall_printf(device_buffer,bufsz);
     payload[0] = (uint64_t) err;
-    atmi_free(device_buffer);
+    atmi_free_hostcall(device_buffer);
 }
 
 void handler_HOSTCALL_SERVICE_MALLOC(void *cbdata, uint32_t service, uint64_t *payload) {
     void *ptr = NULL;
     // CPU device ID 0 is the fine grain memory
     int cpu_device_id = 0;
-    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,cpu_device_id,0);
-    atmi_status_t err = atmi_malloc(&ptr, payload[0], place);
+    atmi_mem_place_t place = ATMI_MEM_PLACE_CPU_MEM(0,cpu_device_id,0);(void)place;
+    atmi_status_t err = atmi_malloc_hostcall(&ptr, payload[0]);
     payload[0] = (uint64_t) err;
     payload[1] = (uint64_t) ptr;
 }
@@ -59,7 +59,7 @@ void handler_HOSTCALL_SERVICE_MALLOC(void *cbdata, uint32_t service, uint64_t *p
 // in the actual service. 
 void handler_HOSTCALL_SERVICE_FREE(void *cbdata, uint32_t service, uint64_t *payload) {
     char* device_buffer   = (char*) payload[1];
-    atmi_free(device_buffer);
+    atmi_free_hostcall(device_buffer);
 }
 
 int vector_product_zeros(int N, int*A, int*B, int*C) {
