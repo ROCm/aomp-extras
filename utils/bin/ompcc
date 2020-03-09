@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  rocc:  Compile OpenMP or HIP source files for the AOMP compiler. 
+#  ompcc:  Compile OpenMP or HIP source files for the AOMP compiler. 
 #
 #  Written by Greg Rodgers  Gregory.Rodgers@amd.com
 #
@@ -47,9 +47,9 @@ PROGVERSION="X.Y-Z"
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
-   rocc: Compile OpenMP or HIP source files for the AOMP compiler
+   ompcc: Compile OpenMP or HIP source files for the AOMP compiler
 
-   Usage: rocc [ options ] filename
+   Usage: ompcc [ options ] filename
 
    Options without values:
     -ll       Generate LLVM IR for compiler passes
@@ -74,8 +74,8 @@ function usage(){
     --amdgpu-target  <cputype>  Default= value returned by mygpu
 
    Examples:
-    rocc my.c              /* Compiles with OpenMP to create a.out */
-    rocc my.hip -o myhip   /* Compiles with HIP to create myhip */
+    ompcc my.c              /* Compiles with OpenMP to create a.out */
+    ompcc my.hip -o myhip   /* Compiles with HIP to create myhip */
 
    Note: Instead of providing these command line options:
      -aomp, -cuda-path, --amdgpu-target,
@@ -215,7 +215,7 @@ if [ "$1" == "-o" ]; then
 fi
 
 cdir=$(getdname $0)
-[ ! -L "$cdir/rocc" ] || cdir=$(getdname `readlink "$cdir/rocc"`)
+[ ! -L "$cdir/ompcc" ] || cdir=$(getdname `readlink "$cdir/ompcc"`)
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
@@ -283,7 +283,7 @@ else
 fi 
 
 sdir=$(getdname $0)
-[ ! -L "$sdir/rocc" ] || sdir=$(getdname `readlink "$sdir/rocc"`)
+[ ! -L "$sdir/ompcc" ] || sdir=$(getdname `readlink "$sdir/ompcc"`)
 ROCC_DIR=$sdir
 
 TMPNAME="aomp-tmp-$$"
@@ -334,7 +334,7 @@ fi
 COMPILER_BIN_DIR="$AOMP/bin"
 
 if [ "$INPUT_FTYPE" == "cu" ] ; then 
-   echo "WARNING: CUDA WITH NVCC IN rocc IS UNTESTED "
+   echo "WARNING: CUDA WITH NVCC IN ompcc IS UNTESTED "
    if [ ! -d $CUDA_PATH ] ; then 
       echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
       exit $DEADRC 
@@ -345,7 +345,7 @@ if [ "$INPUT_FTYPE" == "cu" ] ; then
    COMPILER_BIN_DIR="$CUDA_PATH/bin"
 
 elif [ "$INPUT_FTYPE" == "cl" ] ; then 
-   echo "WARNING: OPENCL IN rocc IS UNTESTED "
+   echo "WARNING: OPENCL IN ompcc IS UNTESTED "
    CLANG_CMD="clang-ocl"
    if [ $CL12 ] ; then
       CLANG_ARGS="$CLANG_ARGS -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$AOMP_GPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.1/include/opencl-c.h $CLOPTS $LINKOPTS"
@@ -369,7 +369,7 @@ elif [ "$INPUT_FTYPE" == "f" ] ; then
    CLANG_CMD="flang"
 
 elif [ "$INPUT_FTYPE" == "hip" ] ; then 
-   echo "WARNING: HIP IN rocc IS UNTESTED "
+   echo "WARNING: HIP IN ompcc IS UNTESTED "
    CLANG_ARGS="-O$LLVMOPT --amdgpu-target=$AOMP_GPU -lamdhip64 -fopenmp"
    CLANG_CMD="hipcc"
 fi
