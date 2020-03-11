@@ -93,6 +93,7 @@ function patchrepo(){
    fi
 }
 
+
 thisdir=$(getdname $0)
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 aomp_repos=$HOME/git/aomp
@@ -101,20 +102,7 @@ raja_url=https://github.com/llnl/raja
 mygpu=`$thisdir/mygpu`
 AOMP_GPU=${AOMP_GPU:-$mygpu}
 RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
-
-if [ $1 == "hip" ] ; then
-    raja_backend="hip"
-    echo "HIP backend enabled"
-else
-    raja_backend="openmp"
-    echo "OpenMP Target backend enabled"
-fi
-
-if [ -z $2 ] ; then
-    RAJA_BUILD_DIR=${RAJA_BUILD_DIR:-$RAJA_BUILD_PREFIX/raja_build_omp.$AOMP_GPU}
-else
-    RAJA_BUILD_DIR=$2
-fi
+RAJA_BUILD_DIR=${RAJA_BUILD_DIR:-$RAJA_BUILD_PREFIX/raja_build.$AOMP_GPU}
 
 mkdir -p $aomp_repos
 cd $aomp_repos
@@ -129,19 +117,24 @@ if [ ! -d $raja_source_dir ] ; then
   fi
 fi
 cd $raja_source_dir
+#Reset to a specific commit as we do no support indirect function calls
+echo git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+
 echo "git submodule update"
 git submodule update
 echo "git pull"
 git pull
+#Reset to a specific commit as we do no support indirect function calls
+echo git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
+git reset --hard 91265c15300e33693bcfc3671e918a0d74195a8c
 
-if ! [ $1 == "hip" ] ; then
 patchdir=$raja_source_dir
 patchfile=$thisdir/raja.patch
 patchrepo
 patchdir=$raja_source_dir/blt
 patchfile=$thisdir/blt.patch
 patchrepo
-fi
 
 mkdir -p $RAJA_BUILD_DIR
 cd $RAJA_BUILD_DIR
@@ -152,9 +145,6 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
    AOMP_CPUTARGET="ppc64le-linux-gnu"
 fi
 
-if [ "$raja_backend" == "hip" ] ; then
-    cmake -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
-else
 cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DOpenMP_CXX_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DENABLE_TARGET_OPENMP=On \
@@ -168,7 +158,6 @@ cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=
       -Wno-dev \
       -DRAJA_ENABLE_OPENMP=On \
       $raja_source_dir
-fi
 if [ $? != 0 ] ; then 
    echo "ERROR in Raja cmake"
    exit 1
