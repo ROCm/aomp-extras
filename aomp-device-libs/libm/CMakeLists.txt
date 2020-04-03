@@ -65,18 +65,22 @@ foreach(mcpu ${gpulist})
     -fopenmp-targets=${triple}
     -Xopenmp-target=${triple}
     -march=${mcpu}
-    -emit-llvm 
+    -emit-llvm
     -DNO_LIBM_HEADER_DEFS=1
     -O${optimization_level}
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include)
+
+  if(NOT ${AOMP_STANDALONE_BUILD})
+    set(omp_common_args "${omp_common_args};--hip-device-lib-path=${ROCM_DIR}/lib/bitcode")
+  endif(NOT ${AOMP_STANDALONE_BUILD})
+
   set(openmp_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++11 ${omp_common_args}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp -o ${bc_filename})
   set(openmp_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang ${omp_common_args}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c -o ${bc_c_filename})
   set(bc_files ${bc_filename} ${bc_c_filename})
   file(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
-
   # Compile cpp code with openmp to make bundled_filename 
   add_custom_command(
       OUTPUT ${bc_filename}

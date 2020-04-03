@@ -32,13 +32,24 @@ else()
   return()
 endif()
 
-# Assome rocm-device-libs repository is next to aomp-extras repository
-set(ROCDL ${CMAKE_CURRENT_SOURCE_DIR}/../../../rocm-device-libs)
-set(ROCDL_INC_OCKL ${ROCDL}/ockl/inc)
-set(ROCDL_INC_OCML ${ROCDL}/ocml/inc)
-set(ROCDL_INC_IRIF ${ROCDL}/irif/inc)
+if(${AOMP_STANDALONE_BUILD} STREQUAL "0")
+  message("------------- NON STANDALONE BUILD ---------------")
+  set(ROCDL_INC_OCKL ${DEVICELIBS_ROOT}/ockl/inc)
+  set(ROCDL_INC_OCML ${DEVICELIBS_ROOT}/ocml/inc)
+  set(ROCDL_INC_IRIF ${DEVICELIBS_ROOT}/irif/inc)
+  set(HIPINC ${ROCM_DIR}/hip/include)
 
-set(HIPINC ${CMAKE_CURRENT_SOURCE_DIR}/../../../hip/include)
+else()
+  message("------------- STANDALONE BUILD ---------------")
+  # Assome rocm-device-libs repository is next to aomp-extras repository
+  set(ROCDL ${CMAKE_CURRENT_SOURCE_DIR}/../../../rocm-device-libs)
+  set(ROCDL_INC_OCKL ${ROCDL}/ockl/inc)
+  set(ROCDL_INC_OCML ${ROCDL}/ocml/inc)
+  set(ROCDL_INC_IRIF ${ROCDL}/irif/inc)
+  set(HIPINC ${CMAKE_CURRENT_SOURCE_DIR}/../../../hip/include)
+endif()
+
+
 
 # add_custom_target(hostcall ALL)
 
@@ -111,6 +122,10 @@ macro(add_hip_bc_library name dir)
     -I${LLVM_LIBRARY_DIRS}/libdevice/include
     -I${HIPINC}
     -I${ROCM_DIR}/include)
+
+  if(NOT ${AOMP_STANDALONE_BUILD})
+    set(hip_cmd "${hip_cmd};--hip-device-lib-path=${ROCM_DIR}/lib/bitcode")
+  endif(NOT ${AOMP_STANDALONE_BUILD})
 
   set(bc1_files)
 

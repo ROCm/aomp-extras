@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-#  ompcc:  Compile OpenMP or HIP source files for the AOMP compiler. 
+#  rocmcc: Wrapper (driver) for the AOMP compiler. 
+#          The goal of this wrapper is to have a simplified interface for 
+#          all languages and options supported by AOMP. 
 #
 #  Written by Greg Rodgers  Gregory.Rodgers@amd.com
 #
@@ -47,15 +49,17 @@ PROGVERSION="X.Y-Z"
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
-   ompcc: Compile OpenMP or HIP source files for the AOMP compiler
+   rocmcc: Wrapper (driver) for the AOMP compiler. 
+           The goal of this wrapper is to have a simplified interface
+           for all languages and options supported by AOMP. 
 
-   Usage: ompcc [ options ] filename
+   Usage: rocmcc [ options ] input-files
 
    Options without values:
     -ll       Generate LLVM IR for compiler passes
     -s        Generate dissassembled gcn
     -g        Generate debug information
-    -version  Display version of aomp then exit
+    -version  Display version of rocmcc then exit
     -v        Verbose, just print commands
     -vv       Very verbose, pass -v to commands
     -n        Dryrun, do nothing, show commands that would execute
@@ -63,26 +67,26 @@ function usage(){
     -k        Keep temporary files
     -c        Compile to object code only
 
-   Options with values:
+   Options with values:         
     -aomp      <path>           $AOMP or _AOMP_INSTALL_DIR_
     -cuda-path <path>           $CUDA_PATH or /usr/local/cuda
     -I         <include dir>    Provide one directory per -I option
     -O         <LLVM opt>       LLVM optimization level
     -o         <outfilename>    Default=a.out
     -t         <tdir>           Temporary directory or intermediate files
-                                Default=/tmp/aomp-tmp-$$
-    --amdgpu-target  <cputype>  Default= value returned by mygpu
+                                Default=/tmp/rocmcc-tmp-$$
+    --amdgpu-target  <cputype>  Default= value returned by mygpu utility
 
    Examples:
-    ompcc my.c              /* Compiles with OpenMP to create a.out */
-    ompcc my.hip -o myhip   /* Compiles with HIP to create myhip */
+    rocmcc my.c              /* Compiles with OpenMP to create a.out */
+    rocmcc my.hip -o myhip   /* Compiles with HIP to create myhip */
 
    Note: Instead of providing these command line options:
      -aomp, -cuda-path, --amdgpu-target,
      you may set these environment variables, respectively:
      AOMP, CUDA_PATH, AOMP_GPU
 
-   Command line options will take precedence over environment variables. 
+   Command line options take precedence over environment variables. 
 
    Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.
 
@@ -215,7 +219,7 @@ if [ "$1" == "-o" ]; then
 fi
 
 cdir=$(getdname $0)
-[ ! -L "$cdir/ompcc" ] || cdir=$(getdname `readlink "$cdir/ompcc"`)
+[ ! -L "$cdir/rocmcc" ] || cdir=$(getdname `readlink "$cdir/rocmcc"`)
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
@@ -283,10 +287,10 @@ else
 fi 
 
 sdir=$(getdname $0)
-[ ! -L "$sdir/ompcc" ] || sdir=$(getdname `readlink "$sdir/ompcc"`)
+[ ! -L "$sdir/rocmcc" ] || sdir=$(getdname `readlink "$sdir/rocmcc"`)
 ROCC_DIR=$sdir
 
-TMPNAME="aomp-tmp-$$"
+TMPNAME="rocmcc-tmp-$$"
 TMPDIR=${TMPDIR:-/tmp/$TMPNAME}
 if [ -d $TMPDIR ] ; then 
    KEEPTDIR=true
@@ -334,7 +338,7 @@ fi
 COMPILER_BIN_DIR="$AOMP/bin"
 
 if [ "$INPUT_FTYPE" == "cu" ] ; then 
-   echo "WARNING: CUDA WITH NVCC IN ompcc IS UNTESTED "
+   echo "WARNING: CUDA WITH NVCC IN rocmcc IS UNTESTED "
    if [ ! -d $CUDA_PATH ] ; then 
       echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
       exit $DEADRC 
@@ -345,7 +349,7 @@ if [ "$INPUT_FTYPE" == "cu" ] ; then
    COMPILER_BIN_DIR="$CUDA_PATH/bin"
 
 elif [ "$INPUT_FTYPE" == "cl" ] ; then 
-   echo "WARNING: OPENCL IN ompcc IS UNTESTED "
+   echo "WARNING: OPENCL IN rocmcc IS UNTESTED "
    CLANG_CMD="clang-ocl"
    if [ $CL12 ] ; then
       CLANG_ARGS="$CLANG_ARGS -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$AOMP_GPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.1/include/opencl-c.h $CLOPTS $LINKOPTS"
@@ -369,7 +373,7 @@ elif [ "$INPUT_FTYPE" == "f" ] ; then
    CLANG_CMD="flang"
 
 elif [ "$INPUT_FTYPE" == "hip" ] ; then 
-   echo "WARNING: HIP IN ompcc IS UNTESTED "
+   echo "WARNING: HIP IN rocmcc IS UNTESTED "
    CLANG_ARGS="-O$LLVMOPT --amdgpu-target=$AOMP_GPU -lamdhip64 -fopenmp"
    CLANG_CMD="hipcc"
 fi

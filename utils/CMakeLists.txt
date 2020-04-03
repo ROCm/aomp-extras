@@ -23,6 +23,7 @@ find_package(LLVM QUIET CONFIG
   ${LLVM_DIR}
   NO_DEFAULT_PATH
 )
+find_package(ZLIB)
 
 if (LLVM_DIR)
   if("{CMAKE_INSTALL_PREFIX}" STREQUAL "")
@@ -88,12 +89,12 @@ add_custom_command( OUTPUT raja_build.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh > raja_build.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh)
 
-add_custom_command( OUTPUT ompcc
-   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/ompcc ${CMAKE_CURRENT_BINARY_DIR}/ompcc
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/ompcc)
-add_custom_command( OUTPUT ompcc.phantom
-   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/ompcc  > ompcc.phantom
-   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ompcc)
+add_custom_command( OUTPUT rocmcc
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/rocmcc ${CMAKE_CURRENT_BINARY_DIR}/rocmcc
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/rocmcc)
+add_custom_command( OUTPUT rocmcc.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/rocmcc  > rocmcc.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rocmcc)
 
 add_custom_command( OUTPUT aompExtractRegion
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompExtractRegion ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
@@ -135,17 +136,17 @@ add_custom_command( OUTPUT modulefile.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
-add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom ompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
+add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom rocmcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
 
 # We need prepare-builtins in the AOMP distribution to build bc libs for components
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
 include(AddLLVM)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fno-rtti")
 add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIR})
 add_executable(prepare-builtins ${CMAKE_CURRENT_SOURCE_DIR}/src/prepare-builtins.cpp)
 llvm_map_components_to_libnames(llvm_libs support core bitreader bitwriter)
-target_link_libraries(prepare-builtins ${llvm_libs})
+target_link_libraries(prepare-builtins ${llvm_libs} ZLIB::ZLIB)
 
 add_custom_target(prepare-builtins-bin ALL DEPENDS ${PREPARE_BUILTINS})
 
@@ -154,7 +155,7 @@ install(PROGRAMS
 	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
    ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
    ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
-   ${CMAKE_CURRENT_BINARY_DIR}/ompcc
+   ${CMAKE_CURRENT_BINARY_DIR}/rocmcc
    ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
    ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
    ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
