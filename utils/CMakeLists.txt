@@ -68,9 +68,10 @@ mark_as_advanced(
   AOMP_LIBDIR
   AOMP_MAIN_INCDIR)
 
+# brutal hardcoding
 string(LENGTH ${LLVM_PACKAGE_VERSION} vlen)
-math(EXPR vstart "${vlen}-5")
-string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 5 version_str)
+math(EXPR vstart "${vlen}-6")
+string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 6 version_str)
 
 set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
 
