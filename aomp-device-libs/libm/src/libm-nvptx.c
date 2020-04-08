@@ -6,6 +6,8 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+// Ignore all these definitions if clang compiler already defined them
+#ifndef __CLANG_CUDA_DEVICE_FUNCTIONS_H__
 #include <math.h>
 #include <stddef.h>
 #include <limits.h>
@@ -685,3 +687,5 @@ double __fma_rz(double __a, double __b, double __c) {
 // END DOUBLE
 
 #pragma omp end declare target
+#endif
+
