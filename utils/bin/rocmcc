@@ -52,8 +52,10 @@ function usage(){
    rocmcc: Wrapper (driver) for the AOMP compiler. 
            The goal of this wrapper is to have a simplified interface
            for all languages and options supported by AOMP. 
+   Usage:  rocmcc [ options ] input-files
 
-   Usage: rocmcc [ options ] input-files
+   hipcc:  Symbolic link to rocmcc to treat c and cpp input files as if hip
+   Usage:  hipcc [ options ] input-files
 
    Options without values:
     -ll       Generate LLVM IR for compiler passes
@@ -75,14 +77,14 @@ function usage(){
     -o         <outfilename>    Default=a.out
     -t         <tdir>           Temporary directory or intermediate files
                                 Default=/tmp/rocmcc-tmp-$$
-    --amdgpu-target  <cputype>  Default= value returned by mygpu utility
+    --offload-arch  <cputype>  Default= value returned by mygpu utility
 
    Examples:
     rocmcc my.c              /* Compiles with OpenMP to create a.out */
     rocmcc my.hip -o myhip   /* Compiles with HIP to create myhip */
 
    Note: Instead of providing these command line options:
-     -aomp, -cuda-path, --amdgpu-target,
+     -aomp, -cuda-path, --offload-arch,
      you may set these environment variables, respectively:
      AOMP, CUDA_PATH, AOMP_GPU
 
@@ -156,6 +158,8 @@ function getdname(){
 
 #  --------  The main code starts here -----
 INCLUDES=""
+PASSTHRUARGS=""
+INPUTFILES=""
 #  Argument processing
 while [ $# -gt 0 ] ; do 
    case "$1" in 
@@ -179,51 +183,52 @@ while [ $# -gt 0 ] ; do
       -O0) 		LLVMOPT=0 ;; 
       -o) 		OUTFILE=$2; shift ;; 
       -t)		TMPDIR=$2; shift ;; 
-      --amdgpu-target)  AOMP_GPU=$2; shift ;;
+      --offload-arch)   AOMP_GPU=$2; shift ;;
       -aomp)            AOMP=$2; shift ;;
       -triple)          TARGET_TRIPLE=$2; shift ;;
       -cuda-path)       CUDA_PATH=$2; shift ;;
-      -h) 	        usage ;; 
-      -help) 	        usage ;; 
-      --help) 	        usage ;; 
-      -version) 	version ;; 
-      --version) 	version ;; 
-      -v) 		VERBOSE=true;; 
-      -vv) 		VV=true;; 
-      --) 		shift ; break;;
-      *) 		break;echo $1 ignored;
+      -h) 	        usage ;;
+      -help) 	        usage ;;
+      --help) 	        usage ;;
+      -version) 	version ;;
+      --version) 	version ;;
+      -v) 		VERBOSE=true;;
+      -vv) 		VV=true;;
+      --) 		shift ;;
+      *)
+        dash=${1:0:1}
+	if [ $dash == "-" ] ; then
+	   PASSTHRUARGS+=" $1"
+        else
+	   INPUTFILES+=" $1"
+        fi
    esac
    shift
 done
 
-# The above while loop is exited when last string with a "-" is processed
-# The rest of the args are input files or the -o argument
-FIRST_INPUT_FILE_NAME=$1
-shift
-
-
-#  Look for other input files
-while [ ! -z $1 ] && [ "$1" != "-o" ] ; do
-   NEXT_INPUT_FILE=$1
-   shift
-   if [ ! -e "$NEXT_INPUT_FILE" ]  ; then 
-      echo "ERROR:  The file $NEXT_INPUT_FILE does not exist."
+fcount=0
+for __input_file in `echo $INPUTFILES` ; do
+   fcount=$(( fcount + 1 ))
+   if [ $fcount == 1 ] ; then
+      FIRST_INPUT_FILE_NAME=$__input_file
+   fi
+   if [ ! -e "$__input_file" ] ; then
+      echo "ERROR:  The file $__input_file does not exist."
       exit $DEADRC
    fi
-   OTHER_INPUT_FILES="$OTHER_INPUT_FILES $NEXT_INPUT_FILE"
 done
-
-#  Allow output specifier after the input files
-if [ "$1" == "-o" ]; then 
-   OUTFILE=$2; shift ; shift; 
+if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then
+   echo "ERROR:  No File specified."
+   exit $DEADRC
 fi
 
 cdir=$(getdname $0)
 [ ! -L "$cdir/rocmcc" ] || cdir=$(getdname `readlink "$cdir/rocmcc"`)
+HOW_CALLED=${0##*/}
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
-   AOMP="_AOMP_INSTALL_DIR_"
+   AOMP="/tmp/grodgers/rocm/aomp_11.5-0"
 fi
 if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
@@ -254,16 +259,6 @@ if [ $VV ]  ; then
 fi
 
 RUNDATE=`date`
-
-if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then 
-   echo "ERROR:  No File specified."
-   exit $DEADRC
-fi
-if [ ! -e "$FIRST_INPUT_FILE_NAME" ]  ; then 
-   echo "ERROR:  The file $FIRST_INPUT_FILE_NAME does not exist."
-   exit $DEADRC
-fi
-
 
 # Parse FIRST_INPUT_FILE_NAME for filetype, directory, and filename
 INPUT_FTYPE=${FIRST_INPUT_FILE_NAME##*\.}
@@ -320,9 +315,10 @@ fi
 if [ $VERBOSE ] ; then 
    echo "#   "
    echo "#Info:  AOMP Version:	$PROGVERSION" 
-   echo "#Info:  AOMP Path:	$AOMP"
-   echo "#Info:  Run date:	$RUNDATE" 
-   echo "#Info:  Input file:	$INDIR/$FILENAME"
+   echo "#Info:  AOMP Path:	$AOMP/bin"
+   echo "#Info:  How called:	$HOW_CALLED"
+   echo "#Info:  Run date:	$RUNDATE"
+   echo "#Info:  Input files:	$INPUTFILES"
    echo "#Info:  Code object:	$OUTDIR/$OUTFILE"
    [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR" 
    echo "#   "
@@ -337,7 +333,21 @@ fi
 #  Pick the compiler based on filetype 
 COMPILER_BIN_DIR="$AOMP/bin"
 
-if [ "$INPUT_FTYPE" == "cu" ] ; then 
+if [ "$HOW_CALLED" == "hipcc" ] || [ "$INPUT_FTYPE" == "hip" ] ; then
+   CLANG_CMD="clang++"
+   AOMP_GPU_UCASE=${AOMP_GPU^^}
+   CLANG_ARGS="-O$LLVMOPT  \
+-lamdhip64 -fopenmp \
+-std=c++11 -I$AOMP/clang/11.0.0/include \
+-I$AOMP/hsa/include \
+-D__HIP_VDI__ \
+-fhip-new-launch-api \
+-I$AOMP/include  \
+-D__HIP_ARCH_${AOMP_GPU_UCASE}__=1 \
+--cuda-gpu-arch=$AOMP_GPU "
+   #  treat rest of c and cpp files as hip
+   HOW_CALLED="hipcc"
+elif [ "$INPUT_FTYPE" == "cu" ] ; then
    echo "WARNING: CUDA WITH NVCC IN rocmcc IS UNTESTED "
    if [ ! -d $CUDA_PATH ] ; then 
       echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
@@ -371,21 +381,19 @@ elif [ "$INPUT_FTYPE" == "f" ] ; then
    # OpenMP FORTRAN
    CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
    CLANG_CMD="flang"
-
-elif [ "$INPUT_FTYPE" == "hip" ] ; then 
-   echo "WARNING: HIP IN rocmcc IS UNTESTED "
-   CLANG_ARGS="-O$LLVMOPT --amdgpu-target=$AOMP_GPU -lamdhip64 -fopenmp"
-   CLANG_CMD="hipcc"
+else
+   echo "ERROR:  PRIMARY FILE TYPE $INPUT_FTYPE NOT SUPPORTED"
+   exit $DEADRC
 fi
 
+if [ $GEN_DEBUG ]  ; then
+   CLANG_ARGS=" -g $CLANG_ARGS"
+fi
 if [ $VV ]  ; then 
-   CLANG_ARGS="-v $CLANG_ARGS"
+   CLANG_ARGS=" -v $CLANG_ARGS"
 fi
 if [ $GEN_OBJECT_ONLY ]  ; then 
-   CLANG_ARGS="-c $CLANG_ARGS"
-fi
-if [ $GEN_DEBUG ]  ; then 
-   CLANG_ARGS="$CLANG_ARGS -g"
+   CLANG_ARGS=" -c $CLANG_ARGS"
 fi
 if [ $GENLL ] ; then
    echo "ERROR:   -ll option not supported yet"
@@ -396,10 +404,28 @@ if [ $GENASM ] ; then
    exit $DEADRC
 fi
 
-rc=0
-runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS -o $OUTDIR/$OUTFILE $INDIR/$FILENAME $OTHER_INPUT_FILES"
+__INPUTS=""
+for __input_file in `echo $INPUTFILES` ; do
+  _ftype=${__input_file##*\.}
+  if [ "$_ftype" == "hip" ] ; then
+     __INPUTS+=" -x hip $__input_file"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "cpp" ] ; then
+     __INPUTS+=" -x hip $__input_file"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "hpp" ] ; then
+     __INPUTS+=" -x hip $__input_file"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "c" ] ; then
+     __INPUTS+=" -x hip $__input_file"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "h" ] ; then
+     __INPUTS+=" -x hip $__input_file"
+  else
+     __INPUTS+=" $__input_file"
+  fi
+done
 
-#  This code needs to be cleaned up 
+rc=0
+runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS $PASSTHRUARGS $__INPUTS -o $OUTDIR/$OUTFILE"
+
+# FIXME:  This needs to be cleaned up and tested
 if [ $GENLL ] ; then
          runcmd "$AOMP/bin/llvm-dis -o $TMPDIR/$FNAME.ll $TMPDIR/$FNAME.bc"
          if [ "$OUTDIR" != "$TMPDIR" ] ; then
@@ -407,6 +433,7 @@ if [ $GENLL ] ; then
          fi
 fi
 
+# FIXME:  This needs to be cleaned up and tested
 if [ $GENASM ] ; then
       textstarthex=`readelf -S -W  $OUTDIR/$OUTFILE | grep .text | awk '{print $6}'`
       textstart=$((0x$textstarthex))
@@ -414,7 +441,7 @@ if [ $GENASM ] ; then
       textsz=$((0x$textszhex))
       countclause=" count=$textsz skip=$textstart"
       dd if=$OUTDIR/$OUTFILE of=$OUTDIR/$FNAME.raw bs=1 $countclause 2>/dev/null
-      hexdump -v -e '/1 "0x%02X "' $OUTDIR/$FNAME.raw | $AOMP/bin/llvm-mc -arch=amdgcn -amdgpu-target=$AOMP_GPU -disassemble >$OUTDIR/$FNAME.s 2>$OUTDIR/$FNAME.s.err
+      hexdump -v -e '/1 "0x%02X "' $OUTDIR/$FNAME.raw | $AOMP/bin/llvm-mc -arch=amdgcn -offload-arch=$AOMP_GPU -disassemble >$OUTDIR/$FNAME.s 2>$OUTDIR/$FNAME.s.err
       rm $OUTDIR/$FNAME.raw
       if [ "$AOMP_GPU" == "kaveri" ] ; then 
          echo "WARNING:  Disassembly not supported for Kaveri. See $FNAME.s.err"
