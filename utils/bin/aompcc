@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  rocmcc: Wrapper (driver) for the AOMP compiler. 
+#  aompcc: Wrapper (driver) for the AOMP compiler. 
 #          The goal of this wrapper is to have a simplified interface for 
 #          all languages and options supported by AOMP. 
 #
@@ -49,19 +49,19 @@ PROGVERSION="X.Y-Z"
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
-   rocmcc: Wrapper (driver) for the AOMP compiler. 
+   aompcc: Wrapper (driver) for the AOMP compiler. 
            The goal of this wrapper is to have a simplified interface
            for all languages and options supported by AOMP. 
-   Usage:  rocmcc [ options ] input-files
+   Usage:  aompcc [ options ] input-files
 
-   hipcc:  Symbolic link to rocmcc to treat c and cpp input files as if hip
+   hipcc:  Symbolic link to aompcc to treat c and cpp input files as if hip
    Usage:  hipcc [ options ] input-files
 
    Options without values:
     -ll       Generate LLVM IR for compiler passes
     -s        Generate dissassembled gcn
     -g        Generate debug information
-    -version  Display version of rocmcc then exit
+    -version  Display version of aompcc then exit
     -v        Verbose, just print commands
     -vv       Very verbose, pass -v to commands
     -n        Dryrun, do nothing, show commands that would execute
@@ -76,12 +76,12 @@ function usage(){
     -O         <LLVM opt>       LLVM optimization level
     -o         <outfilename>    Default=a.out
     -t         <tdir>           Temporary directory or intermediate files
-                                Default=/tmp/rocmcc-tmp-$$
+                                Default=/tmp/aompcc-tmp-$$
     --offload-arch  <cputype>  Default= value returned by mygpu utility
 
    Examples:
-    rocmcc my.c              /* Compiles with OpenMP to create a.out */
-    rocmcc my.hip -o myhip   /* Compiles with HIP to create myhip */
+    aompcc my.c              /* Compiles with OpenMP to create a.out */
+    aompcc my.hip -o myhip   /* Compiles with HIP to create myhip */
 
    Note: Instead of providing these command line options:
      -aomp, -cuda-path, --offload-arch,
@@ -223,7 +223,7 @@ if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then
 fi
 
 cdir=$(getdname $0)
-[ ! -L "$cdir/rocmcc" ] || cdir=$(getdname `readlink "$cdir/rocmcc"`)
+[ ! -L "$cdir/aompcc" ] || cdir=$(getdname `readlink "$cdir/aompcc"`)
 HOW_CALLED=${0##*/}
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
@@ -282,10 +282,10 @@ else
 fi 
 
 sdir=$(getdname $0)
-[ ! -L "$sdir/rocmcc" ] || sdir=$(getdname `readlink "$sdir/rocmcc"`)
+[ ! -L "$sdir/aompcc" ] || sdir=$(getdname `readlink "$sdir/aompcc"`)
 ROCC_DIR=$sdir
 
-TMPNAME="rocmcc-tmp-$$"
+TMPNAME="aompcc-tmp-$$"
 TMPDIR=${TMPDIR:-/tmp/$TMPNAME}
 if [ -d $TMPDIR ] ; then 
    KEEPTDIR=true
@@ -348,7 +348,7 @@ if [ "$HOW_CALLED" == "hipcc" ] || [ "$INPUT_FTYPE" == "hip" ] ; then
    #  treat rest of c and cpp files as hip
    HOW_CALLED="hipcc"
 elif [ "$INPUT_FTYPE" == "cu" ] ; then
-   echo "WARNING: CUDA WITH NVCC IN rocmcc IS UNTESTED "
+   echo "WARNING: CUDA WITH NVCC IN aompcc IS UNTESTED "
    if [ ! -d $CUDA_PATH ] ; then 
       echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
       exit $DEADRC 
@@ -359,7 +359,7 @@ elif [ "$INPUT_FTYPE" == "cu" ] ; then
    COMPILER_BIN_DIR="$CUDA_PATH/bin"
 
 elif [ "$INPUT_FTYPE" == "cl" ] ; then 
-   echo "WARNING: OPENCL IN rocmcc IS UNTESTED "
+   echo "WARNING: OPENCL IN aompcc IS UNTESTED "
    CLANG_CMD="clang-ocl"
    if [ $CL12 ] ; then
       CLANG_ARGS="$CLANG_ARGS -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$AOMP_GPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.1/include/opencl-c.h $CLOPTS $LINKOPTS"
