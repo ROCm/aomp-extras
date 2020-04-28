@@ -159,7 +159,7 @@ endmacro()
 macro(add_ocl_bc_library name dir)
 	set(cl_cmd ${LLVM_INSTALL_PREFIX}/bin/clang
     -fvisibility=default
-    -S -emit-llvm
+    -S -nogpulib -emit-llvm
     -DCL_VERSION_2_0=200 -D__OPENCL_C_VERSION__=200
     -Dcl_khr_fp64 -Dcl_khr_fp16
     -Dcl_khr_subgroups -Dcl_khr_int64_base_atomics -Dcl_khr_int64_extended_atomics

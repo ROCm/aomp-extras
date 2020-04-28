@@ -45,7 +45,7 @@ get_target_property(irif_lib_output irif_lib OUTPUT_NAME)
 
 #  OpenCL files are no longer gfx specific, so only build them one time
 set(cl_cmd ${LLVM_COMPILER}/bin/clang
-    -S -emit-llvm -Xclang -mlink-builtin-bitcode -Xclang "${irif_lib_output}"
+    -S -nogpulib -emit-llvm -Xclang -mlink-builtin-bitcode -Xclang "${irif_lib_output}"
     -DCL_VERSION_2_0=200 -D__OPENCL_C_VERSION__=200
     -Dcl_khr_fp64 -Dcl_khr_fp16
     -Dcl_khr_subgroups -Dcl_khr_int64_base_atomics -Dcl_khr_int64_extended_atomics
