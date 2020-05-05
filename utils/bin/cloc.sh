@@ -236,7 +236,7 @@ if [ ! -d $AOMP ] ; then
    exit 1
 fi
 
-DEVICELIB=${DEVICELIB:-$AOMP/lib}
+DEVICELIB=${DEVICELIB:-$AOMP/../lib}
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 ATMI_PATH=${ATMI_PATH:-_AOMP_INSTALL_DIR_}
@@ -260,7 +260,7 @@ fi
 
 BCFILES=""
 
-BCFILES="$BCFILES $DEVICELIB/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
+BCFILES="$BCFILES $DEVICELIB/../aomp/lib/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
 BCFILES="$BCFILES $DEVICELIB/opencl.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/ocml.amdgcn.bc"
 BCFILES="$BCFILES $DEVICELIB/ockl.amdgcn.bc"
@@ -309,9 +309,9 @@ if [ $CUDACLANG ] ; then
 else
   INCLUDES="-I ${DEVICELIB}/include ${INCLUDES}"
   if [ $CL12 ] ; then
-     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMP -c -mcpu=$LC_MCPU -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$LC_MCPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/11.0.0/include/opencl-c.h $CLOPTS $LINKOPTS}
+     CMD_CLC=${CMD_CLC:-clang -c -mcpu=$LC_MCPU -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$LC_MCPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/11.0.0/include/opencl-c.h $CLOPTS $LINKOPTS}
   else
-     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMP -c -mcpu=$LC_MCPU -emit-llvm -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $AOMP/lib/clang/11.0.0/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
+     CMD_CLC=${CMD_CLC:-clang -c -mcpu=$LC_MCPU -emit-llvm -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $AOMP/lib/clang/11.0.0/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
 
    fi
 fi
