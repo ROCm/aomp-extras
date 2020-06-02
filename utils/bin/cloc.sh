@@ -305,7 +305,7 @@ fi
 #  Define the subcomands
 if [ $CUDACLANG ] ; then 
    INCLUDES="-I $CUDA_PATH/include ${INCLUDES}"
-   CMD_CLC=${CMD_CLC:-clang++ $CUOPTS $INCLUDES} 
+   CMD_CLC=${CMD_CLC:-clang++ -c -std=c++11 $CUOPTS $INCLUDES}
 else
   INCLUDES="-I ${DEVICELIB}/include ${INCLUDES}"
   if [ $CL12 ] ; then
