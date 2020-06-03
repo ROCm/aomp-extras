@@ -319,7 +319,13 @@ CMD_LLA=${CMD_LLA:-llvm-dis}
 CMD_ASM=${CMD_ASM:-llvm-as}
 CMD_LLL=${CMD_LLL:-llvm-link}
 CMD_OPT=${CMD_OPT:-opt -O$LLVMOPT -mcpu=$LC_MCPU -amdgpu-annotate-kernel-features}
-CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mattr=+code-object-v3 -mcpu=$LC_MCPU}
+
+#cl files require code-object-v2
+if [ "$filetype" == "cl" ]  ; then
+  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mattr=-code-object-v3 -mcpu=$LC_MCPU}
+else
+  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mattr=+code-object-v3 -mcpu=$LC_MCPU}
+fi
 
 RUNDATE=`date`
 
