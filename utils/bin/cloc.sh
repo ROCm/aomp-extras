@@ -237,6 +237,7 @@ if [ ! -d $AOMP ] ; then
 fi
 
 DEVICELIB=${DEVICELIB:-$AOMP/../lib}
+AMDGCNDEVICELIB=${AMDGCNDEVICELIB:-$AOMP/amdgcn/bitcode}
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 ATMI_PATH=${ATMI_PATH:-_AOMP_INSTALL_DIR_}
@@ -261,13 +262,13 @@ fi
 BCFILES=""
 
 BCFILES="$BCFILES $DEVICELIB/../aomp/lib/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
-BCFILES="$BCFILES $DEVICELIB/opencl.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/ocml.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/ockl.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/oclc_correctly_rounded_sqrt_off.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/oclc_daz_opt_on.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/oclc_finite_only_off.amdgcn.bc"
-BCFILES="$BCFILES $DEVICELIB/oclc_unsafe_math_off.amdgcn.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/opencl.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/ocml.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/ockl.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_correctly_rounded_sqrt_off.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_daz_opt_on.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_finite_only_off.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_unsafe_math_off.bc"
 #BCFILES="$BCFILES $DEVICELIB/libdevice/libm-amdgcn-$LC_MCPU.bc"
 
 if [ -f $ATMI_PATH/lib/libdevice/libatmi.bc ]; then

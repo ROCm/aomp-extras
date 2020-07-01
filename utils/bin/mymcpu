@@ -141,6 +141,8 @@ function code2gpu(){
       ;;
       "NRAXJ")   gpuname="gfx908"
       ;;
+      "gfx1010")   gpuname="gfx1010"
+      ;;
       "sm_30")   gpuname="sm_30"
       ;;
       "k4000")   gpuname="sm_30"
@@ -198,6 +200,8 @@ function gpu2code(){
       "gfx906") codename="vega20"
       ;;
       "gfx908") codename="NRAXJ"
+      ;;
+      "gfx1010") codename="gfx1010"
       ;;
 # sm_ numbers do not map to specific gpus so just return the sm number
       *) codename="$1"
