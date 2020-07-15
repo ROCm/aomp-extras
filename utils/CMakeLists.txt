@@ -151,20 +151,37 @@ target_link_libraries(prepare-builtins ${llvm_libs} ZLIB::ZLIB)
 
 add_custom_target(prepare-builtins-bin ALL DEPENDS ${PREPARE_BUILTINS})
 
-install(PROGRAMS 
-	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
-	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
-   ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
-   ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
-   ${CMAKE_CURRENT_BINARY_DIR}/aompcc
-   ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
-   ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
-   ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
-   ${CMAKE_CURRENT_BINARY_DIR}/aompversion
-   ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
-   ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
-   ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
-   ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
-   ${CMAKE_CURRENT_BINARY_DIR}/modulefile
-   ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
+if(${AOMP_STANDALONE_BUILD})
+  install(PROGRAMS
+    #   ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
+    #   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/aompcc
+     ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
+     ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
+     ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
+     ${CMAKE_CURRENT_BINARY_DIR}/aompversion
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
+     ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
+     ${CMAKE_CURRENT_BINARY_DIR}/modulefile
+     ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
    DESTINATION "bin")
+
+else()
+  install(PROGRAMS
+     ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/aompcc
+     ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
+     ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
+     ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
+     ${CMAKE_CURRENT_BINARY_DIR}/aompversion
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
+     ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
+   DESTINATION "rocm-bin")
+endif()
