@@ -67,6 +67,7 @@ foreach(mcpu ${gpulist})
     -march=${mcpu}
     -emit-llvm
     -DNO_LIBM_HEADER_DEFS=1
+    --rocm-path=${LLVM_INSTALL_PREFIX}
     -O${optimization_level}
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${LLVM_LIBRARY_DIRS}/libdevice/include)
