@@ -851,4 +851,38 @@ double __fma_rz(double x, double y, double z)
 }
 // END INTRINSICS
 // END DOUBLE
+
+// Complex functions
+#define _ISNANd __ocml_isnan_f64
+#define _ISNANf __isnanf
+#define _ISINFd __ocml_isinf_f64
+#define _ISINFf __isinff
+#define _ISFINITEd __finite
+#define _ISFINITEf __finitef
+#define _COPYSIGNd copysign
+#define _COPYSIGNf copysignf
+#define _SCALBNd scalbn
+#define _SCALBNf scalbnf
+#define _ABSd fabs
+#define _ABSf fabsf
+#define _LOGBd logb
+#define _LOGBf logbf
+
+#include "complex.def"
+
+#undef _ISNANd
+#undef _ISNANf
+#undef _ISINFd
+#undef _ISINFf
+#undef _COPYSIGNd
+#undef _COPYSIGNf
+#undef _ISFINITEd
+#undef _ISFINITEf
+#undef _SCALBNd
+#undef _SCALBNf
+#undef _ABSd
+#undef _ABSf
+#undef _LOGBd
+#undef _LOGBf
+
 #pragma omp end declare target

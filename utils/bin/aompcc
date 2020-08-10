@@ -223,7 +223,7 @@ if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then
 fi
 
 cdir=$(getdname $0)
-[ ! -L "$cdir/aompcc" ] || cdir=$(getdname `readlink "$cdir/aompcc"`)
+[ ! -L "$cdir/aompcc" ] || cdir=$(getdname `readlink -f "$cdir/aompcc"`)
 HOW_CALLED=${0##*/}
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}

@@ -102,7 +102,7 @@ mygpu=`$thisdir/mygpu`
 AOMP_GPU=${AOMP_GPU:-$mygpu}
 RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
 
-if [ $1 == "hip" ] ; then
+if [ "$1" == "hip" ] ; then
     raja_backend="hip"
     echo "HIP backend enabled"
 else
@@ -119,8 +119,8 @@ fi
 mkdir -p $aomp_repos
 cd $aomp_repos
 if [ ! -d $raja_source_dir ] ; then 
-  echo git clone --recursive -b master $raja_url 
-  git clone --recursive -b master $raja_url
+  echo git clone --recursive -b main $raja_url
+  git clone --recursive -b main $raja_url
   if [ $? != 0 ] ; then 
      echo
      echo "ERROR  could not git clone $raja_url "
@@ -134,7 +134,7 @@ git submodule update
 echo "git pull"
 git pull
 
-if ! [ $1 == "hip" ] ; then
+if ! [ "$1" == "hip" ] ; then
 patchdir=$raja_source_dir
 patchfile=$thisdir/raja.patch
 patchrepo
