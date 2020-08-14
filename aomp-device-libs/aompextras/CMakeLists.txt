@@ -85,6 +85,7 @@ foreach(mcpu ${mcpus})
 set(hip_bc_files)
 
 set(hip_cmd ${LLVM_COMPILER}/bin/clang++ -c -emit-llvm -x hip
+    -nogpulib -nogpuinc
     --cuda-device-only --offload-arch=${mcpu} -O2 -std=c++11
     -I${CMAKE_CURRENT_SOURCE_DIR}/../include 
     -I${CMAKE_CURRENT_SOURCE_DIR}/src)
