@@ -160,7 +160,7 @@ cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=
       -DENABLE_TARGET_OPENMP=On \
       -DENABLE_CUDA=Off \
       -DENABLE_CLANG_CUDA=Off \
-      -DCMAKE_EXE_LINKER_FLAGS="-lomptarget" \
+      -DCMAKE_EXE_LINKER_FLAGS="" \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=$AOMP/bin/clang \
       -DCMAKE_CXX_COMPILER=$AOMP/bin/clang++ \
