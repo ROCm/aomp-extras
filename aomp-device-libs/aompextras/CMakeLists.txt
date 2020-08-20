@@ -122,7 +122,7 @@ set(final_bc_filename "${AOMPEXTRAS_BC_LIB_DIR}/lib${libname}-amdgcn-${mcpu}.bc"
 add_custom_command(
     OUTPUT ${final_bc_filename}
     COMMAND ${PREPARE_BUILTINS} linkout.${mcpu}.bc -o ${final_bc_filename}
-    DEPENDS linkout.${mcpu}.bc prepare-builtins-bin)
+    DEPENDS linkout-${mcpu}-bc prepare-builtins-bin)
 
 add_custom_target(lib${libname}-amdgcn-${mcpu}-bc ALL DEPENDS ${final_bc_filename})
 
