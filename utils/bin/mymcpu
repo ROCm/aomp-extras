@@ -47,14 +47,14 @@ PROGVERSION=X.Y-Z
 # 
 
 function usage(){
-/bin/cat 2>&1 <<"EOF" 
+/bin/cat 2>&1 <<"EOF"
 
-   mymcpu: Print out a codename for the gpu of the current system 
-           or for the gpu specified with -getcodename option. 
+   mymcpu: Print out a codename for the gpu of the current system
+           or for the gpu specified with -getcodename option.
 
-   mygpu:  Print out the real gpu name for the current system 
+   mygpu:  Print out the real gpu name for the current system
            or for the codename specified with -getgpuname option.
-           mygpu will only print values accepted by cuda clang in 
+           mygpu will only print values accepted by cuda clang in
            the clang argument --cuda-gpu-arch
 
    Usage: mygpu <options>
@@ -65,16 +65,16 @@ function usage(){
     -version  Print the version of mymcpu and mygpu
 
    Options with values:
-    -getgpuname   <codename>  Convert <codename> to gpu name. 
-    -getcodename  <gpuname>   Convert <gpuname> to a code name 
+    -getgpuname   <codename>  Convert <codename> to gpu name.
+    -getcodename  <gpuname>   Convert <gpuname> to a code name
 
    Copyright (c) 2018 ADVANCED MICRO DEVICES, INC.
 
 EOF
-   exit 1 
+   exit 1
 }
 
-function version(){ 
+function version(){
    echo $PROGVERSION
    exit 0
 }
@@ -99,8 +99,8 @@ function getdname(){
    echo $__DIRN
 }
 
-function code2gpu(){ 
-   case "$1" in 
+function code2gpu(){
+   case "$1" in
       "tahiti")  gpuname="gfx600"
       ;;
       "gfx600")  gpuname="gfx600"
@@ -132,6 +132,8 @@ function code2gpu(){
       "gfx803")  gpuname="gfx803"
       ;;
       "fiji")    gpuname="gfx803"
+      ;;
+      "ellesmere") gpuname="gfx803"
       ;;
       "vega")    gpuname="gfx900"
       ;;
@@ -177,8 +179,8 @@ function code2gpu(){
 
 # This routine can echo the gpu name as the codename.
 # HELP! TODO: Lots more options to add for both amd and nvidia
-function gpu2code(){ 
-   case "$1" in 
+function gpu2code(){
+   case "$1" in
       "gfx600") codename="tahiti"
       ;;
       "gfx601") codename="oland"
@@ -241,41 +243,41 @@ else
 fi
 }
 
-#  ===========  Main code for mymcpu and mygpu starts here ========== 
+#  ===========  Main code for mymcpu and mygpu starts here ==========
 TYPERUN=${0##*\/}
 MODE=
 
 unknown_value="unknown"
 #  process args
-while [ $# -gt 0 ] ; do 
-   case "$1" in 
+while [ $# -gt 0 ] ; do
+   case "$1" in
       -getgpuname)      INPUT_CODENAME=$2; shift ;;
       -getcodename)     INPUT_GPUNAME=$2; shift ;;
       -n) 	        MODE=num; shift ;;
-      -h) 	        usage ;; 
+      -h) 	        usage ;;
       -d) 	        unknown_value=$2; shift ;;
-      -help) 	        usage ;; 
-      --help) 	        usage ;; 
-      -version) 	version ;; 
-      --version) 	version ;; 
+      -help) 	        usage ;;
+      --help) 	        usage ;;
+      -version) 	version ;;
+      --version) 	version ;;
       --) 		shift ; break;;
       *) 		break;echo $1 ignored;
    esac
    shift
 done
 
-if [ $INPUT_GPUNAME ] && [ $INPUT_CODENAME ] ; then 
+if [ $INPUT_GPUNAME ] && [ $INPUT_CODENAME ] ; then
    echo "ERROR: Please specify only -convert or -codename option"
    exit 1
 fi
 
 rc=0
-if [ "$TYPERUN" == "mygpu" ] ; then 
-   if [ $INPUT_GPUNAME ] ; then 
+if [ "$TYPERUN" == "mygpu" ] ; then
+   if [ $INPUT_GPUNAME ] ; then
       # nothing to do stupid
       gpuname=$INPUT_GPUNAME
    else
-      if [ $INPUT_CODENAME ] ; then 
+      if [ $INPUT_CODENAME ] ; then
          codename=`echo $INPUT_CODENAME | tr '[:upper:]' '[:lower:]'`
       else
          codename=$(getmycodename)
@@ -288,13 +290,13 @@ if [ "$TYPERUN" == "mygpu" ] ; then
    else
      echo `echo $gpuname | sed 's/gfx//' | sed 's/sm_//'`
    fi
-else 
+else
    # This is mymcpu so print the codename
-   if [ $INPUT_CODENAME ] ; then 
+   if [ $INPUT_CODENAME ] ; then
       # nothing to do stupid
       codename=$INPUT_CODENAME
-   else 
-      if [ $INPUT_GPUNAME ] ; then 
+   else
+      if [ $INPUT_GPUNAME ] ; then
          gpuname=`echo $INPUT_GPUNAME | tr '[:upper:]' '[:lower:]'`
          codename=$(gpu2code $gpuname)
       else
