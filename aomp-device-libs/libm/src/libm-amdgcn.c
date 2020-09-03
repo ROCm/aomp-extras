@@ -11,7 +11,7 @@
 #include "libm-amdgcn.h"
 
 #define __private __attribute__((address_space(5)))
-
+#define USED __attribute__((used))
 #pragma omp declare target
 unsigned long long __make_mantissa_base8(const char* tagp)
 {
@@ -98,7 +98,7 @@ float ceilf(float x) { return __ocml_ceil_f32(x); }
 
 float copysignf(float x, float y) { return __ocml_copysign_f32(x, y); }
 
-float cosf(float x) { return __ocml_cos_f32(x); }
+USED float cosf(float x) { return __ocml_cos_f32(x); }
 
 float coshf(float x) { return __ocml_cosh_f32(x); }
 
@@ -336,13 +336,13 @@ void sincospif(float x, float* sptr, float* cptr)
     *cptr = tmp;
 }
 
-float sinf(float x) { return __ocml_sin_f32(x); }
+USED float sinf(float x) { return __ocml_sin_f32(x); }
 
 float sinhf(float x) { return __ocml_sinh_f32(x); }
 
 float sinpif(float x) { return __ocml_sinpi_f32(x); }
 
-float sqrtf(float x) { return __ocml_sqrt_f32(x); }
+USED float sqrtf(float x) { return __ocml_sqrt_f32(x); }
 
 float tanf(float x) { return __ocml_tan_f32(x); }
 

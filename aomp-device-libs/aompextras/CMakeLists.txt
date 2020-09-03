@@ -85,6 +85,7 @@ foreach(mcpu ${mcpus})
 set(hip_bc_files)
 
 set(hip_cmd ${LLVM_COMPILER}/bin/clang++ -c -emit-llvm -x hip
+    -nogpulib -nogpuinc
     --cuda-device-only --offload-arch=${mcpu} -O2 -std=c++11
     -I${CMAKE_CURRENT_SOURCE_DIR}/../include 
     -I${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -121,7 +122,7 @@ set(final_bc_filename "${AOMPEXTRAS_BC_LIB_DIR}/lib${libname}-amdgcn-${mcpu}.bc"
 add_custom_command(
     OUTPUT ${final_bc_filename}
     COMMAND ${PREPARE_BUILTINS} linkout.${mcpu}.bc -o ${final_bc_filename}
-    DEPENDS linkout.${mcpu}.bc prepare-builtins-bin)
+    DEPENDS linkout-${mcpu}-bc prepare-builtins-bin)
 
 add_custom_target(lib${libname}-amdgcn-${mcpu}-bc ALL DEPENDS ${final_bc_filename})
 
