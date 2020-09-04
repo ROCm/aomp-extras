@@ -172,16 +172,9 @@ if(${AOMP_STANDALONE_BUILD})
 
 else()
   install(PROGRAMS
-     ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
-     ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
-     ${CMAKE_CURRENT_BINARY_DIR}/aompcc
-     ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
      ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
-     ${CMAKE_CURRENT_BINARY_DIR}/aompversion
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
-     ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
-     ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
      ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
    DESTINATION "rocm-bin")
 endif()
