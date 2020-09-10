@@ -129,10 +129,18 @@ if [ ! -d $raja_source_dir ] ; then
   fi
 fi
 cd $raja_source_dir
+
+# Fix hash to prevent failure to build
+echo git reset --hard 412e621f5923db136782829fd52afaceb0da5433
+git reset --hard 412e621f5923db136782829fd52afaceb0da5433
+
 echo "git submodule update"
 git submodule update
 echo "git pull"
 git pull
+
+echo git reset --hard 412e621f5923db136782829fd52afaceb0da5433
+git reset --hard 412e621f5923db136782829fd52afaceb0da5433
 
 if ! [ "$1" == "hip" ] ; then
 patchdir=$raja_source_dir
