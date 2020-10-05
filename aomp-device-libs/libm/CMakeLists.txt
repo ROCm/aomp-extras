@@ -47,7 +47,6 @@ foreach(mcpu ${gpulist})
 
   set(omp_common_args
     -c 
-    -fvisibility=hidden
     -emit-llvm
     -target ${cpu_target}
     -fopenmp 
