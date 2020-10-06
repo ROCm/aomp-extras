@@ -14,10 +14,20 @@
 //     double fast_sqrt(double __a) { ... }
 //   #endif
 
+#define __BUILD_MATH_BUILTINS_LIB__
+
 #ifdef __AMDGCN__
-#include "libm-amdgcn.c"
+#pragma omp declare target
+#define __HIP__
+#define __OPENMP_AMDGCN__
+#include <__clang_hip_math.h>
+#pragma omp end declare target
 #endif
 
 #ifdef __NVPTX__
-#include "libm-nvptx.c"
+#pragma omp declare target
+#define __CUDA__
+#define __OPENMP_NVPTX__
+#include <__clang_cuda_math.h>
+#pragma omp end declare target
 #endif
