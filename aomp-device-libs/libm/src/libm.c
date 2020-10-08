@@ -18,7 +18,6 @@
 
 #ifdef __AMDGCN__
 #pragma omp declare target
-#define __HIP__
 #define __OPENMP_AMDGCN__
 #include <__clang_hip_math.h>
 #pragma omp end declare target
