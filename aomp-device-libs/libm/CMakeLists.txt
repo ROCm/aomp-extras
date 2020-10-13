@@ -33,14 +33,6 @@ else()
   return()
 endif()
 
-#  FIXME DELETE THESE COMMENTS
-# Assome rocm-device-libs repository is next to aomp-extras repository
-#set(ROCDL ${CMAKE_CURRENT_SOURCE_DIR}/../../../rocm-device-libs)
-#set(ROCDL_INC_OCKL ${ROCDL}/ockl/inc)
-#set(ROCDL_INC_OCML ${ROCDL}/ocml/inc)
-#set(ROCDL_INC_IRIF ${ROCDL}/irif/inc)
-#set(HIPINC ${CMAKE_CURRENT_SOURCE_DIR}/../../../hip/include)
-
 #optimization level
 set(optimization_level 2)
 
@@ -48,10 +40,6 @@ set(OUTPUTDIR ${CMAKE_CURRENT_BINARY_DIR})
 
 macro(build_static_device_bc_lib)
 foreach(mcpu ${gpulist})
-	#  set(bundled_filename bundle_cpp.${mcpu}.bc)
-	#  set(bundled_c_filename bundle_c.${mcpu}.bc)
-  set(bc_filename libm_cpp.${mcpu}.bc)
-  set(bc_c_filename libm_c.${mcpu}.bc)
   set(cpu_target x86_64-pc-linux-gnu)
   if(${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "ppc64le")
     set(cpu_target powerpc64le-linux-gnu)
@@ -59,17 +47,15 @@ foreach(mcpu ${gpulist})
 
   set(omp_common_args
     -c 
-    --cuda-device-only
+    -emit-llvm
     -target ${cpu_target}
     -fopenmp 
     -fopenmp-targets=${triple}
     -Xopenmp-target=${triple}
     -march=${mcpu}
-    -emit-llvm
-    -DNO_LIBM_HEADER_DEFS=1
-    -O${optimization_level}
-    -I${CMAKE_CURRENT_SOURCE_DIR}/src
-    -I${LLVM_LIBRARY_DIRS}/libdevice/include)
+    --cuda-device-only
+    -nocudalib
+    -O${optimization_level})
 
   if(NOT ${AOMP_STANDALONE_BUILD})
     #FIXME Remove NEW_BC_PATH along with reference to /lib/bitcode when non-standalone build switches to new amdgcn path.
@@ -81,25 +67,13 @@ foreach(mcpu ${gpulist})
     set(omp_common_args "${omp_common_args};--hip-device-lib-path=${BC_DIR}")
   endif(NOT ${AOMP_STANDALONE_BUILD})
 
-  set(openmp_cmd ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++11 ${omp_common_args}
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp -o ${bc_filename})
   set(openmp_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang ${omp_common_args}
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c -o ${bc_c_filename})
-  set(bc_files ${bc_filename} ${bc_c_filename})
-  file(GLOB h_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
-  # Compile cpp code with openmp to make bundled_filename 
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c)
+
   add_custom_command(
-      OUTPUT ${bc_filename}
-      COMMAND ${openmp_cmd}
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.cpp" ${h_files})
-  add_custom_command(
-      OUTPUT ${bc_c_filename}
-      COMMAND ${openmp_c_cmd}
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c" ${h_files})
-  add_custom_command(
-    OUTPUT libm-${systemarch}-${mcpu}.bc
-    COMMAND ${LLVM_INSTALL_PREFIX}/bin/llvm-link ${bc_files} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
-    DEPENDS ${bc_files}
+      OUTPUT libm-${systemarch}-${mcpu}.bc
+      COMMAND ${openmp_c_cmd} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
+      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c"
   )
   add_custom_target(libm-${systemarch}-${mcpu} ALL DEPENDS libm-${systemarch}-${mcpu}.bc)
   install(FILES ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc 
@@ -129,17 +103,18 @@ set(nvptx_numbers $ENV{NVPTXGPUS})
 if(NOT nvptx_numbers)
   set(nvptx_numbers "30,35,50,60,61,70")
 endif()
+
 set(nvptxgpus)
 string(REGEX REPLACE "," ";" nvptx_numbers_list ${nvptx_numbers})
 foreach(sm_number ${nvptx_numbers_list})
    list(APPEND nvptxgpus "sm_${sm_number}")
 endforeach()
+
 # prepare variables used by build_static_device_bc_lib
 set(gpulist ${nvptxgpus})
-message("   -- SKIPPING libm generation for ${gpulist} because cuda-clang already defined them.")
-#set(systemarch "nvptx")
-#set(triple "nvptx64-nvidia-cuda ")
-#build_static_device_bc_lib()
+set(systemarch "nvptx")
+set(triple "nvptx64-nvidia-cuda ")
+build_static_device_bc_lib()
 
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   message("--------------------------------------------")
