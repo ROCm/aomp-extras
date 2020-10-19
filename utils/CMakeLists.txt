@@ -33,7 +33,7 @@ if (LLVM_DIR)
   message(STATUS "AOMP LLVM Found!")
   message(STATUS "     LLVM_PACKAGE_VERSION:     ${LLVM_PACKAGE_VERSION} ")
   message(STATUS "     LLVM_DIR:                 ${LLVM_DIR}")
-  message(STATUS "     LLVM LLVM_INSTALL_PREFIX: ${LLVM_INSTALL_PREFIX}")
+  message(STATUS "     LLVM_INSTALL_PREFIX:      ${LLVM_INSTALL_PREFIX}")
   message(STATUS "     CMAKE_INSTALL_PREFIX:     ${CMAKE_INSTALL_PREFIX}")
   message("")
 else()
@@ -68,10 +68,12 @@ mark_as_advanced(
   AOMP_LIBDIR
   AOMP_MAIN_INCDIR)
 
-# brutal hardcoding
-string(LENGTH ${LLVM_PACKAGE_VERSION} vlen)
-math(EXPR vstart "${vlen}-6")
-string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 6 version_str)
+# For AOMP, get the version_str from end of CMAKE_INSTALL_PREFIX
+string(LENGTH ${LLVM_INSTALL_PREFIX} liplen)
+string(LENGTH ${CMAKE_INSTALL_PREFIX} ciplen)
+math(EXPR vlen "${ciplen} - ${liplen} - 1")
+math(EXPR vstart "${ciplen} - ${vlen}")
+string(SUBSTRING ${CMAKE_INSTALL_PREFIX} ${vstart} ${vlen} version_str)
 
 set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
 
