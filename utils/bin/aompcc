@@ -228,9 +228,6 @@ HOW_CALLED=${0##*/}
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
-   AOMP="/tmp/grodgers/rocm/aomp_11.5-0"
-fi
-if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
    echo "       Please install AOMP or set environment variable AOMP"
    exit 1
