@@ -69,11 +69,15 @@ mark_as_advanced(
   AOMP_MAIN_INCDIR)
 
 # For AOMP, get the version_str from end of CMAKE_INSTALL_PREFIX
-string(LENGTH ${LLVM_INSTALL_PREFIX} liplen)
-string(LENGTH ${CMAKE_INSTALL_PREFIX} ciplen)
-math(EXPR vlen "${ciplen} - ${liplen} - 1")
-math(EXPR vstart "${ciplen} - ${vlen}")
-string(SUBSTRING ${CMAKE_INSTALL_PREFIX} ${vstart} ${vlen} version_str)
+if(AOMP_VERSION_STRING)
+  set(version_str ${AOMP_VERSION_STRING})
+else()
+  string(LENGTH ${LLVM_INSTALL_PREFIX} liplen)
+  string(LENGTH ${CMAKE_INSTALL_PREFIX} ciplen)
+  math(EXPR vlen "${ciplen} - ${liplen} - 1")
+  math(EXPR vstart "${ciplen} - ${vlen}")
+  string(SUBSTRING ${CMAKE_INSTALL_PREFIX} ${vstart} ${vlen} version_str)
+endif()
 
 set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
 
