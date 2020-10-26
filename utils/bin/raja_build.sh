@@ -154,7 +154,7 @@ fi
 mkdir -p $RAJA_BUILD_DIR
 cd $RAJA_BUILD_DIR
 
-UNAMEP=`uname -p`
+UNAMEP=`uname -m`
 AOMP_CPUTARGET="${UNAMEP}-pc-linux-gnu"
 if [ "$UNAMEP" == "ppc64le" ] ; then
    AOMP_CPUTARGET="ppc64le-linux-gnu"

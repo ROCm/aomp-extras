@@ -321,7 +321,7 @@ if [ $VERBOSE ] ; then
    echo "#   "
 fi 
 
-UNAMEP=`uname -p`
+UNAMEP=`uname -m`
 HOST_TARGET="$UNAMEP-pc-linux-gnu"
 if [ "$UNAMEP" == "ppc64le" ] ; then 
   HOST_TARGET="ppc64le-linux-gnu"
