@@ -90,16 +90,6 @@ set(hip_cmd ${LLVM_COMPILER}/bin/clang++ -c -emit-llvm -x hip
     -I${CMAKE_CURRENT_SOURCE_DIR}/../include 
     -I${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-  if(NOT ${AOMP_STANDALONE_BUILD})
-   #FIXME Remove NEW_BC_PATH along with reference to /lib/bitcode when non-standalone build switches to new amdgcn path.
-    if(${NEW_BC_PATH})
-      set(BC_DIR ${ROCM_DIR}/amdgcn/bitcode)
-    else()
-      set(BC_DIR ${ROCM_DIR}/lib/bitcode)
-    endif()
-    set(hip_cmd "${hip_cmd};--hip-device-lib-path=${BC_DIR}")
-  endif(NOT ${AOMP_STANDALONE_BUILD})
-
 foreach(file ${hip_sources})
     file(RELATIVE_PATH rfile ${CMAKE_CURRENT_SOURCE_DIR}/src ${file})
     get_filename_component(fname ${rfile} NAME_WE)

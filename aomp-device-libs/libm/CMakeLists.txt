@@ -54,18 +54,9 @@ foreach(mcpu ${gpulist})
     -Xopenmp-target=${triple}
     -march=${mcpu}
     --cuda-device-only
+    -nogpuinc
     -nocudalib
     -O${optimization_level})
-
-  if(NOT ${AOMP_STANDALONE_BUILD})
-    #FIXME Remove NEW_BC_PATH along with reference to /lib/bitcode when non-standalone build switches to new amdgcn path.
-    if(${NEW_BC_PATH})
-      set(BC_DIR ${ROCM_DIR}/amdgcn/bitcode)
-    else()
-      set(BC_DIR ${ROCM_DIR}/lib/bitcode)
-    endif()
-    set(omp_common_args "${omp_common_args};--hip-device-lib-path=${BC_DIR}")
-  endif(NOT ${AOMP_STANDALONE_BUILD})
 
   set(openmp_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang ${omp_common_args}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c)
