@@ -60,8 +60,13 @@ KOKKOS_BRANCH=develop
 KOKKOS_TAG=3.2.00
 _mygpu=`$AOMP/bin/mygpu`
 AOMP_GPU=${AOMP_GPU:-$_mygpu}
-AOMP_CMAKE=${AOMP_CMAKE:-/usr/local/cmake/bin/cmake}
 KOKKOS_BUILD_PREFIX=${KOKKOS_BUILD_PREFIX:-$HOME}
+
+if [ -f /usr/local/cmake/bin/cmake ] ; then
+  AOMP_CMAKE=${AOMP_CMAKE:-/usr/local/cmake/bin/cmake}
+else
+  AOMP_CMAKE=${AOMP_CMAKE:-cmake}
+fi
 
 if [ "$1" == "hip" ] ; then
    kokkos_backend="hip"
@@ -71,6 +76,18 @@ else
    kokkos_backend="openmp"
    KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_build_omp.$AOMP_GPU}
    KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_omp.$AOMP_GPU}
+fi
+
+# Clean install, build and source directories
+if [ "$1" == "clean" ] ; then
+  echo Cleaning:
+  echo SOURCE_DIR: $KOKKOS_SOURCE_DIR
+  echo BUILD_DIR: $KOKKOS_BUILD_DIR
+  echo INSTALL_DIR: $KOKKOS_INSTALL_DIR
+  rm -rf $KOKKOS_SOURCE_DIR
+  rm -rf $KOKKOS_BUILD_DIR
+  rm -rf $KOKKOS_INSTALL_DIR
+  exit 0
 fi
 
 function patchkokkos(){
@@ -169,12 +186,16 @@ else
    -DKokkos_ENABLE_OPENMP=On \
    -DKokkos_ARCH_HSW=On \
    -DKokkos_ENABLE_HWLOC=On  \
+   -DKokkos_HWLOC_DIR=$HWLOC_DIR \
    -DKokkos_ENABLE_OPENMPTARGET=On \
    -DKokkos_ENABLE_TESTS=On \
    $KOKKOS_SOURCE_DIR
 fi
 if [ $? != 0 ] ; then 
+   echo
    echo "ERROR in Kokkos cmake"
+   echo "If HWLOC is not found, set environment variable HWLOC_DIR=/path/to/hwloc."
+   echo
    exit 1
 fi
 
