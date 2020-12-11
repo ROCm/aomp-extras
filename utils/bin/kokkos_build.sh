@@ -57,7 +57,12 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 KOKKOS_BRANCH=develop
-KOKKOS_TAG=3.2.00
+
+# 3.2.00 (Aug 25, 2020) requires a new patch, this script was written
+# on a newer version of KOKKOS on develop last hash to work
+# was on Dec 1, 2020
+#KOKKOS_TAG=3.2.00
+KOKKOS_SHA=bcd758b6ebaf0901ec00b0be4289f8202c0ae1d1
 _mygpu=`$AOMP/bin/mygpu`
 AOMP_GPU=${AOMP_GPU:-$_mygpu}
 KOKKOS_BUILD_PREFIX=${KOKKOS_BUILD_PREFIX:-$HOME}
@@ -136,8 +141,8 @@ if [ ! -d $KOKKOS_SOURCE_DIR ] ; then
       echo
       exit 1
    fi
-   git checkout $KOKKOS_TAG
    cd $KOKKOS_SOURCE_DIR
+   git checkout $KOKKOS_SHA
    patchkokkos
 else 
    echo
