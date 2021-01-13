@@ -173,13 +173,8 @@ if(${AOMP_STANDALONE_BUILD})
 else()
   install(PROGRAMS
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
+     ${CMAKE_CURRENT_BINARY_DIR}/aompcc
      ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
-     ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
-   DESTINATION "rocm-bin")
-
-  install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/aompcc DESTINATION "bin")
-
-  # Create soft link for rocm/bin/aompcc -> rocm/llvm/bin/aompcc.
-  install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ../llvm/bin/aompcc ${CMAKE_INSTALL_PREFIX}/rocm-bin/aompcc)")
+   DESTINATION "bin")
 endif()
