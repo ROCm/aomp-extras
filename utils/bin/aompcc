@@ -5,6 +5,7 @@
 #          compiling for openmp target offload.
 #
 #  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+PROGVERSION="X.Y-Z"
 #
 #
 # Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.  
@@ -45,8 +46,6 @@
 # EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the 
 # Software License Agreement.
 # 
-
-PROGVERSION="12.0-0"
 
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
