@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+#  openmpi_set_cu_mask: Script that reads OpenMPI environment variables and
+#                       builds ROCR_GLOBAL_CU_MASK accordingly. THis script is to
+#                       demonstrate how to distribute a GPU across multiple
+#                       ranks of an MPI job.
+#
+#  Limitations:
+#  - Only works with AOMP with patched rocr runtume to support ROCR_GLOBAL_CU_MASK
+#  - Only works with GPUs that have 60 CUs
+#  - Only works when number of local MPI processes is a multiple of 60
+#  - Only works with OpenMPI because OpenMPI sets certain environment variables
+#
+#  Example Usage:
+#  mpirun -np 4 /usr/lib/aomp/bin/openmpi_set_cu_mask <MPI_APP_BINARY> <MPI_APP_ARGS>
+#  mpirun -np 6 /usr/lib/aomp/bin/openmpi_set_cu_mask
+#
+#  Written by Greg Rodgers 
+
+PROGVERSION=X.Y-Z
+function version(){
+   echo $0 version $PROGVERSION
+   exit 0
+}
+[ "$1" == "--version" ] && version
+
+#  Get environment variables set by OpenMPI
+_num_local_procs=$OMPI_COMM_WORLD_LOCAL_SIZE
+_local_proc_num=$OMPI_COMM_WORLD_LOCAL_RANK
+if [ -z "$_num_local_procs" ] ; then 
+   echo "ERROR: $0 is intended to be run with OpenMPI (mpirun)"
+   exit 1
+fi
+
+# Assume the number of GPU cus is maximum CU count of all agents 
+_number_of_CUs=0
+for last_cu_count in `$AOMP/bin/rocminfo | grep "Compute Unit:" | cut -d":" -f2` ; do
+   if [[ ( $last_cu_count > $_number_of_CUs ) ]] ; then 
+      _number_of_CUs=$last_cu_count
+   fi
+done
+
+#  This script is only tested with number of CUs == 60
+if [ $_number_of_CUs != 60 ] ; then 
+   echo "ERROR:  currently only support GPUs with 60 CUs"
+   echo "        This GPU has $_number_of_CUs CUs"
+fi
+# This script is only tested where CUs can be divided evenly across MPI ranks
+_rem=$(($_number_of_CUs%_num_local_procs))
+if [ $_rem != 0 ] ; then
+   echo "ERROR: The number of CUs ($_number_of_CUs) can not be divided by $_num_local_procs"
+   exit 1
+fi
+
+#  Calculate the CU mask
+_number_of_bits_to_drop=$(( 64 - $_number_of_CUs ))
+_bits_to_set=$(($_number_of_CUs/$_num_local_procs))
+_bits_to_shift=$((($_local_proc_num * $_bits_to_set) + $_number_of_bits_to_drop  ))
+_unshifted_bits=$((( 2 ** $_bits_to_set ) - 1 ))
+_mask_decimal=$(($_unshifted_bits<<$_bits_to_shift))
+_mask=$( printf "0x%016x" $_mask_decimal ) 
+   
+echo "proc_num:$_local_proc_num  ROCR_GLOBAL_CU_MASK:$_mask"
+export ROCR_GLOBAL_CU_MASK=$_mask
+
+# execute the application
+$*
+exit $?
