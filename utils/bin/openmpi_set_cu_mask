@@ -55,10 +55,12 @@ for last_cu_count in `$AOMP/bin/rocminfo | grep "Compute Unit:" | cut -d":" -f2`
 done
 
 #  This script is only tested with number of CUs == 60
-if [ $_number_of_CUs != 60 ] ; then 
-   echo "ERROR:  currently only support GPUs with 60 CUs"
+_rem=$(($_number_of_CUs%4))
+if [ $_rem != 0 ] ; then
+   echo "ERROR:  currently only support GPUs where number of CUs is divisible by 4"
    echo "        This GPU has $_number_of_CUs CUs"
 fi
+
 # This script is only tested where CUs can be divided evenly across MPI ranks
 _rem=$(($_number_of_CUs%_num_local_procs))
 if [ $_rem != 0 ] ; then
@@ -69,11 +71,17 @@ fi
 #  Calculate the CU mask
 _bits_to_set=$(($_number_of_CUs/$_num_local_procs))
 _bits_to_shift=$(($_local_proc_num * $_bits_to_set))
-_unshifted_bits=$((( 2 ** $_bits_to_set ) - 1 ))
-_mask_decimal=$(($_unshifted_bits<<$_bits_to_shift))
-_mask=$( printf "0x%016x" $_mask_decimal ) 
-   
-echo "proc_num:$_local_proc_num  ROCR_GLOBAL_CU_MASK:$_mask"
+# use bc because these values can be very large
+_unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
+_mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
+# Calculate the number of leading zeros needed for tis mask
+_lz=$(( ( $_number_of_CUs / 4 ) - ${#_mask} ))
+for i in `seq 1 $_lz` ; do
+    _mask="0$_mask"
+done
+_mask="0x$_mask"
+
+echo "ROCR_GLOBAL_CU_MASK:$_mask proc_num:$_local_proc_num "
 export ROCR_GLOBAL_CU_MASK=$_mask
 
 # execute the application
