@@ -5,6 +5,7 @@
 #          compiling for openmp target offload.
 #
 #  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+PROGVERSION="X.Y-Z"
 #
 #
 # Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.  
@@ -45,6 +46,7 @@
 # EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the 
 # Software License Agreement.
 # 
+
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
@@ -55,6 +57,8 @@ function usage(){
 
    Options without values:
     -g        Generate debug information
+    -version  Display version of aompcc then exit
+    --version Display version of aompcc then exit
     -v        Verbose, just print commands
     -vv       Very verbose, pass -v to commands
     -n        Dryrun, do nothing, show commands that would execute
@@ -104,6 +108,11 @@ function do_err(){
    fi
    [ $VV ] && echo "#Info:  Done"
    exit $1
+}
+
+function version(){
+   echo $PROGVERSION
+   exit 0
 }
 
 function runcmd(){
@@ -172,6 +181,8 @@ while [ $# -gt 0 ] ; do
       -h) 	        usage ;;
       -help) 	        usage ;;
       --help) 	        usage ;;
+      -version) 	version ;;
+      --version) 	version ;;
       -v) 		VERBOSE=true;;
       -vv) 		VV=true;;
       --) 		shift ;;
