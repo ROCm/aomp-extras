@@ -16,6 +16,7 @@
 #  mpirun -np 6 /usr/lib/aomp/bin/openmpi_set_cu_mask
 #
 #  Written by Greg Rodgers 
+#  Copyright 2021 AMD
 
 PROGVERSION=X.Y-Z
 function version(){
