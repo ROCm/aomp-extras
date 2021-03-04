@@ -57,9 +57,30 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 KOKKOS_BRANCH=develop
-KOKKOS_TAG=3.2.00
-_mygpu=`$AOMP/bin/mygpu`
-AOMP_GPU=${AOMP_GPU:-$_mygpu}
+KOKKOS_TAG=3.3.01
+
+if [[ "$AOMP" =~ "opt" ]]; then
+  echo Set AOMP_GPU with rocm_agent_enumerator.
+  export DETECTED_GPU=$($AOMP/../bin/rocm_agent_enumerator | grep -m 1 -E gfx[^0]{1}.{2})
+else
+  echo Set AOMP_GPU with mygpu.
+  if [ -a $AOMP/bin/mygpu ]; then
+    export DETECTED_GPU=$($AOMP/bin/mygpu)
+  else
+    export DETECTED_GPU=$($AOMP/../bin/mygpu)
+  fi
+fi
+
+AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
+
+echo AOMP_GPU = $AOMP_GPU
+echo AOMP     = $AOMP
+
+if [ "$AOMP_GPU" == "" ] || [ "$AOMP_GPU" == "unknown" ]; then
+  echo Error: AOMP_GPU not properly set...exiting.
+  exit 1
+fi
+
 KOKKOS_BUILD_PREFIX=${KOKKOS_BUILD_PREFIX:-$HOME}
 
 if [ -f /usr/local/cmake/bin/cmake ] ; then
@@ -136,8 +157,8 @@ if [ ! -d $KOKKOS_SOURCE_DIR ] ; then
       echo
       exit 1
    fi
-   git checkout $KOKKOS_TAG
    cd $KOKKOS_SOURCE_DIR
+   git checkout $KOKKOS_TAG
    patchkokkos
 else 
    echo
