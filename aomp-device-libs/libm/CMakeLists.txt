@@ -70,12 +70,31 @@ foreach(mcpu ${gpulist})
   set(openmp_c_cmd ${LLVM_INSTALL_PREFIX}/bin/clang ${omp_common_args}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c)
 
-  add_custom_command(
-      OUTPUT libm-${systemarch}-${mcpu}.bc
-      COMMAND ${openmp_c_cmd} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c"
-  )
-  add_custom_target(libm-${systemarch}-${mcpu} ALL DEPENDS libm-${systemarch}-${mcpu}.bc)
+  # AMD only linking of ocml.bc to libm
+  if(${triple} STREQUAL "amdgcn-amd-amdhsa")
+    add_custom_command(
+        OUTPUT libm-${systemarch}-${mcpu}-tmp.bc
+        COMMAND ${openmp_c_cmd} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}-tmp.bc
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c"
+    )
+    add_custom_command(
+        OUTPUT libm-${systemarch}-${mcpu}.bc
+        COMMAND ${LLVM_INSTALL_PREFIX}/bin/llvm-link ${OUTPUTDIR}/libm-${systemarch}-${mcpu}-tmp.bc ${ocml_bc} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
+        COMMENT "Linking ocml.bc to libm-${mcpu}"
+    )
+
+    # Final bc is dependent on libm-tmp.bc
+    add_custom_target(libm-${systemarch}-${mcpu}-tmp ALL DEPENDS libm-${systemarch}-${mcpu}-tmp.bc)
+    add_custom_target(libm-${systemarch}-${mcpu} ALL DEPENDS libm-${systemarch}-${mcpu}.bc libm-${systemarch}-${mcpu}-tmp)
+  else()
+    add_custom_command(
+        OUTPUT libm-${systemarch}-${mcpu}.bc
+        COMMAND ${openmp_c_cmd} -o ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/libm.c"
+    )
+    add_custom_target(libm-${systemarch}-${mcpu} ALL DEPENDS libm-${systemarch}-${mcpu}.bc)
+  endif()
+
   install(FILES ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc 
      DESTINATION "lib/libdevice")
   install(FILES ${OUTPUTDIR}/libm-${systemarch}-${mcpu}.bc 
@@ -97,6 +116,26 @@ separate_arguments(gfxgpus)
 set(triple "amdgcn-amd-amdhsa")
 set(systemarch "amdgcn")
 set(gpulist ${gfxgpus})
+
+# Use config from device-libs to find install location
+# Look for ocml.bc to link into libm
+find_package(AMDDeviceLibs REQUIRED CONFIG)
+if(AMDDeviceLibs_FOUND)
+  if(NOT DEFINED AMD_DEVICE_LIBS_TARGETS)
+    get_property(AMD_DEVICE_LIBS_TARGETS GLOBAL PROPERTY AMD_DEVICE_LIBS)
+  endif()
+  foreach(AMDGCN_LIB_TARGET ${AMD_DEVICE_LIBS_TARGETS})
+    get_target_property(bc_lib_path ${AMDGCN_LIB_TARGET} LOCATION)
+    if(NOT bc_lib_path)
+      message(FATAL_ERROR "Could not find path to bitcode library")
+    endif()
+    if(${AMDGCN_LIB_TARGET} STREQUAL "ocml")
+      set(ocml_bc ${bc_lib_path})
+    endif()
+  endforeach()
+endif()
+
+set(bclist "${LLVM_INSTALL_PREFIX}/")
 build_static_device_bc_lib()
 
 set(nvptx_numbers $ENV{NVPTXGPUS})
