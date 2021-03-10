@@ -135,7 +135,6 @@ if(AMDDeviceLibs_FOUND)
   endforeach()
 endif()
 
-set(bclist "${LLVM_INSTALL_PREFIX}/")
 build_static_device_bc_lib()
 
 set(nvptx_numbers $ENV{NVPTXGPUS})
