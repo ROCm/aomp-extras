@@ -139,6 +139,8 @@ function code2gpu(){
       ;;
       "RavenRidge")  gpuname="gfx902"
       ;;
+      "renoir")  gpuname="gfx900"
+      ;;
       "vega20")   gpuname="gfx906"
       ;;
       "NRAXJ")   gpuname="gfx908"

@@ -107,6 +107,9 @@ while read line ; do
                elif [ "$dword" == "Fiji"  ] ; then 
                   codename=fiji
                   _found_rad=1
+               elif [ "$dword" == "Renoir"  ] ; then 
+                  codename=renoir
+                  _found_rad=1
                elif [ "$dword" == "[GeForce" ] || [ "$dword" == "[Tesla" ] || \
                   [ "$dword" == "[Quadro" ] ; then 
                   _found_nv=1

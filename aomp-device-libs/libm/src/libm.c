@@ -20,6 +20,7 @@
 #pragma omp declare target
 #define __OPENMP_AMDGCN__
 #include <__clang_hip_math.h>
+#include <__clang_cuda_complex_builtins.h>
 #pragma omp end declare target
 #endif
 

@@ -33,7 +33,7 @@ if (LLVM_DIR)
   message(STATUS "AOMP LLVM Found!")
   message(STATUS "     LLVM_PACKAGE_VERSION:     ${LLVM_PACKAGE_VERSION} ")
   message(STATUS "     LLVM_DIR:                 ${LLVM_DIR}")
-  message(STATUS "     LLVM LLVM_INSTALL_PREFIX: ${LLVM_INSTALL_PREFIX}")
+  message(STATUS "     LLVM_INSTALL_PREFIX:      ${LLVM_INSTALL_PREFIX}")
   message(STATUS "     CMAKE_INSTALL_PREFIX:     ${CMAKE_INSTALL_PREFIX}")
   message("")
 else()
@@ -68,10 +68,16 @@ mark_as_advanced(
   AOMP_LIBDIR
   AOMP_MAIN_INCDIR)
 
-# brutal hardcoding
-string(LENGTH ${LLVM_PACKAGE_VERSION} vlen)
-math(EXPR vstart "${vlen}-6")
-string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 6 version_str)
+# For AOMP, get the version_str from end of CMAKE_INSTALL_PREFIX
+if(AOMP_VERSION_STRING)
+  set(version_str ${AOMP_VERSION_STRING})
+else()
+  string(LENGTH ${LLVM_INSTALL_PREFIX} liplen)
+  string(LENGTH ${CMAKE_INSTALL_PREFIX} ciplen)
+  math(EXPR vlen "${ciplen} - ${liplen} - 1")
+  math(EXPR vstart "${ciplen} - ${vlen}")
+  string(SUBSTRING ${CMAKE_INSTALL_PREFIX} ${vstart} ${vlen} version_str)
+endif()
 
 set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
 
@@ -83,12 +89,26 @@ add_custom_command( OUTPUT cloc.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh > cloc.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh)
 
+add_custom_command( OUTPUT openmpi_set_cu_mask
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask ${CMAKE_CURRENT_BINARY_DIR}/openmpi_set_cu_mask
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask)
+add_custom_command( OUTPUT openmpi_set_cu_mask.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/openmpi_set_cu_mask > openmpi_set_cu_mask.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/openmpi_set_cu_mask)
+
 add_custom_command( OUTPUT raja_build.sh
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja_build.sh ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja_build.sh)
 add_custom_command( OUTPUT raja_build.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh > raja_build.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh)
+
+add_custom_command( OUTPUT kokkos_build.sh
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/kokkos_build.sh ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/kokkos_build.sh)
+add_custom_command( OUTPUT kokkos_build.sh.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh > kokkos_build.sh.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh)
 
 add_custom_command( OUTPUT aompcc
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompcc ${CMAKE_CURRENT_BINARY_DIR}/aompcc
@@ -137,7 +157,7 @@ add_custom_command( OUTPUT modulefile.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
-add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
+add_custom_target(utils_scripts ALL DEPENDS openmpi_set_cu_mask.phantom cloc.sh.phantom raja_build.sh.phantom kokkos_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
 
 # We need prepare-builtins in the AOMP distribution to build bc libs for components
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
@@ -155,7 +175,9 @@ install(PROGRAMS
 	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
 	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
    ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
+   ${CMAKE_CURRENT_BINARY_DIR}/openmpi_set_cu_mask
    ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
+   ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh
    ${CMAKE_CURRENT_BINARY_DIR}/aompcc
    ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
    ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
