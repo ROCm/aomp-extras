@@ -120,6 +120,7 @@ set(gpulist ${gfxgpus})
 # Use config from device-libs to find install location
 # Look for ocml.bc to link into libm
 find_package(AMDDeviceLibs REQUIRED CONFIG)
+message("---AMDDeviceLibs_DIR: ${AMDDeviceLibs_DIR}")
 if(NOT DEFINED AMD_DEVICE_LIBS_TARGETS)
   get_property(AMD_DEVICE_LIBS_TARGETS GLOBAL PROPERTY AMD_DEVICE_LIBS)
 endif()
