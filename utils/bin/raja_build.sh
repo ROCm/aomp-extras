@@ -95,6 +95,7 @@ function patchrepo(){
 
 thisdir=$(getdname $0)
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
+AOMP_CMAKE=${AOMP_CMAKE:-cmake}
 aomp_repos=$HOME/git/aomp
 raja_source_dir=$aomp_repos/raja
 raja_url=https://github.com/llnl/raja
@@ -162,9 +163,9 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
 fi
 
 if [ "$raja_backend" == "hip" ] ; then
-    cmake -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
+    $AOMP_CMAKE -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
 else
-cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
+    $AOMP_CMAKE -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DOpenMP_CXX_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DENABLE_TARGET_OPENMP=On \
       -DENABLE_CUDA=Off \
