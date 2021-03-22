@@ -58,6 +58,7 @@ KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 KOKKOS_BRANCH=develop
 KOKKOS_TAG=3.3.01
+NUM_THREADS=${NUM_THREADS:-8}
 
 if [[ "$AOMP" =~ "opt" ]]; then
   echo Set AOMP_GPU with rocm_agent_enumerator.
@@ -225,7 +226,9 @@ echo "CMAKE done in directory $KOKKOS_BUILD_DIR"
 echo
 echo "Starting build ..."
 
-make -j8
+echo make -j$NUM_THREADS
+make -j$NUM_THREADS
+
 if [ $? != 0 ] ; then 
    echo "ERROR in Kokkos build"
    exit 1
