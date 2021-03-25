@@ -85,7 +85,8 @@ while read line ; do
          if [ $_numtabs == 1 ] ; then 
             notab=`echo $line | tr -d '\011'`
             majorid=`echo $notab | awk '{print $1}'`
-            codename=`echo $notab | awk '{print $2}'` 
+            codename=`echo $notab | awk '{print $2}'`
+            subname=`echo $notab | awk '{print $3}'`
             restb=`echo $notab | awk '{$1=$2=$3="" ; print $0}'`
             descript=`echo $notab | awk '{$1="" ; print $0}'`
             _found_rad=0
@@ -93,7 +94,7 @@ while read line ; do
             # Look at all the words in the description for GPU identifiers 
             # or words that would make it not a GPU that we dont care about
             for dwordspaces in $descript ; do 
-               dword=`echo $dwordspaces | tr -d '[:space:]'` 
+               dword=`echo $dwordspaces | tr -d '[:space:]'`
                if [ "$dword" == "[Radeon"  ] ; then 
                   _found_rad=1
                elif [ "$dword" == "Radeon"  ] ; then 
@@ -109,6 +110,9 @@ while read line ; do
                   _found_rad=1
                elif [ "$dword" == "Renoir"  ] ; then 
                   codename=renoir
+                  _found_rad=1
+               elif [ "$dword" == "Navi"  ] ; then 
+                   codename="navi$subname"
                   _found_rad=1
                elif [ "$dword" == "[GeForce" ] || [ "$dword" == "[Tesla" ] || \
                   [ "$dword" == "[Quadro" ] ; then 
