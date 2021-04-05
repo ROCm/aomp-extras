@@ -330,12 +330,20 @@ fi
 #  Pick the compiler based on filetype 
 COMPILER_BIN_DIR="$AOMP/bin"
 
+if [ -d $AOMP/clang/13.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/13.0.0/include
+elif [ -d $AOMP/clang/12.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/12.0.0/include
+else
+   CLANG_INCLUDE_DIR=$AOMP/clang/11.0.0/include
+fi
+
 if [ "$HOW_CALLED" == "hipcc" ] || [ "$INPUT_FTYPE" == "hip" ] ; then
    CLANG_CMD="clang++"
    AOMP_GPU_UCASE=${AOMP_GPU^^}
    CLANG_ARGS="-O$LLVMOPT  \
 -lamdhip64 -fopenmp \
--std=c++11 -I$AOMP/clang/11.0.0/include \
+-std=c++11 -I$CLANG_INCLUDE_DIR \
 -I$AOMP/hsa/include \
 -D__HIP_VDI__ \
 -fhip-new-launch-api \

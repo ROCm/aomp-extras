@@ -310,7 +310,9 @@ if [ $CUDACLANG ] ; then
    CMD_CLC=${CMD_CLC:-clang++ -c -std=c++11 $CUOPTS $INCLUDES}
 else
   INCLUDES="-I ${DEVICELIB}/include ${INCLUDES}"
-  if [ -d  $AOMP/lib/clang/12.0.0 ] ; then
+  if [ -d  $AOMP/lib/clang/13.0.0 ] ; then
+    CLANGDIR=$AOMP/lib/clang/13.0.0
+  elif [ -d  $AOMP/lib/clang/12.0.0 ] ; then
     CLANGDIR=$AOMP/lib/clang/12.0.0
   else
     CLANGDIR=$AOMP/lib/clang/11.0.0
