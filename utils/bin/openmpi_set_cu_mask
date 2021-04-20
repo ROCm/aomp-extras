@@ -1,22 +1,33 @@
 #!/bin/bash
 #
 #  openmpi_set_cu_mask: Script that reads OpenMPI environment variables and
-#                       builds ROCR_GLOBAL_CU_MASK accordingly. THis script is to
-#                       demonstrate how to distribute a GPU across multiple
-#                       ranks of an MPI job.
+#                       builds ROCR_GLOBAL_CU_MASK accordingly then launches
+#                       the MPI process. This script demonstrates how to
+#                       distribute a GPU across multiple ranks of an MPI
+#                       job into mutually exclusive CU sets
 #
 #  Limitations:
-#  - Only works with AOMP with patched rocr runtume to support ROCR_GLOBAL_CU_MASK
-#  - Only works with GPUs that have 60 CUs
-#  - Only works when number of local MPI processes is a multiple of 60
-#  - Only works with OpenMPI because OpenMPI sets certain environment variables
+#  1 Only works with AOMP 13.0-2 or greater. This has a patched rocr/hsa
+#    runtime to support the ROCR_GLOBAL_CU_MASK env variable. Get AOMP 13.0-2
+#    here: https://github.com/ROCm-Developer-Tools/aomp/releases/tag/rel_13.0-2
+#  2 Only works with GPUs that have less than 64 CUs.
+#
+#  3 Only works with OpenMPI because OpenMPI sets certain environment variables
+#  4 Only creates masks that are mutually exclusive of each other.
+#    That is, the MPI processes will not share CUs.
+#  5 Because of 4, this demo script only works when number of CUs is
+#    divisible by number of local MPI processes.
+#
+#  Restrictions 3,4, & 5 are artifacts of this scripted implementation.
+#  Implementation by a workload manager process launch tool may be
+#  more flexible in setting ROCR_GLOBAL_CU_MASK.
 #
 #  Example Usage:
 #  mpirun -np 4 /usr/lib/aomp/bin/openmpi_set_cu_mask <MPI_APP_BINARY> <MPI_APP_ARGS>
 #  mpirun -np 6 /usr/lib/aomp/bin/openmpi_set_cu_mask
 #
 #  Written by Greg Rodgers 
-#  Copyright 2021 AMD
+#  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
 
 PROGVERSION=X.Y-Z
 function version(){
@@ -69,13 +80,13 @@ if [ $_rem != 0 ] ; then
    exit 1
 fi
 
-#  Calculate the CU mask
+#  Build the CU mask for this process
 _bits_to_set=$(($_number_of_CUs/$_num_local_procs))
 _bits_to_shift=$(($_local_proc_num * $_bits_to_set))
 # use bc because these values can be very large
 _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
 _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
-# Calculate the number of leading zeros needed for tis mask
+# Calculate the number of leading zeros needed for this mask
 _lz=$(( ( $_number_of_CUs / 4 ) - ${#_mask} ))
 for i in `seq 1 $_lz` ; do
     _mask="0$_mask"
