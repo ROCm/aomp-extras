@@ -143,7 +143,9 @@ function code2gpu(){
       ;;
       "vega20")   gpuname="gfx906"
       ;;
-      "NRAXJ")   gpuname="gfx908"
+      "ARCTURUS")   gpuname="gfx908"
+      ;;
+      "ALDEBARAN")   gpuname="gfx90a"
       ;;
       "navi10")   gpuname="gfx1010"
       ;;
@@ -223,7 +225,9 @@ function gpu2code(){
       ;;
       "gfx906") codename="vega20"
       ;;
-      "gfx908") codename="NRAXJ"
+      "gfx908") codename="ARCTURUS"
+      ;;
+      "gfx90a") codename="ALDEBARAN"
       ;;
       "gfx1010") codename="gfx1010"
       ;;
