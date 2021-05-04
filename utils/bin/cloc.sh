@@ -313,12 +313,12 @@ else
   if [ -d  $AOMP/lib/clang/12.0.0 ] ; then
     CLANGDIR=$AOMP/lib/clang/12.0.0
   else
-    CLANGDIR=$AOMP/lib/clang/11.0.0
+    CLANGDIR=$AOMP/lib/clang/13.0.0
   fi
   if [ $CL12 ] ; then
-     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMPHIP -c -mcpu=$LC_MCPU -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$LC_MCPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $CLANGDIR/include/opencl-c.h $CLOPTS $LINKOPTS}
+     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMPHIP -c -mcpu=$LC_MCPU -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$LC_MCPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $CLANGDIR/include/opencl-c.h $CLOPTS $LINKOPTS}
   else
-     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMPHIP -c -mcpu=$LC_MCPU -emit-llvm -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $CLANGDIR/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
+     CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMPHIP -c -mcpu=$LC_MCPU -emit-llvm -x cl -Xclang -cl-std=CL2.0  $CLOPTS $LINKOPTS $INCLUDES -include $CLANGDIR/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}}
 
    fi
 fi
@@ -329,9 +329,9 @@ CMD_OPT=${CMD_OPT:-opt -O$LLVMOPT -mcpu=$LC_MCPU -amdgpu-annotate-kernel-feature
 
 #cl files require code-object-v2
 if [ "$filetype" == "cl" ]  ; then
-  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mattr=-code-object-v3 -mcpu=$LC_MCPU}
+  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mcpu=$LC_MCPU}
 else
-  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mattr=+code-object-v3 -mcpu=$LC_MCPU}
+  CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mcpu=$LC_MCPU}
 fi
 
 RUNDATE=`date`
