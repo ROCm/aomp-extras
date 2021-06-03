@@ -57,7 +57,7 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 KOKKOS_BRANCH=develop
-KOKKOS_TAG=3.3.01
+KOKKOS_TAG=7c76889
 NUM_THREADS=${NUM_THREADS:-8}
 
 if [[ "$AOMP" =~ "opt" ]]; then
@@ -74,8 +74,34 @@ fi
 
 AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
-echo AOMP_GPU = $AOMP_GPU
-echo AOMP     = $AOMP
+# Determine if AOMP_GPU is supported in KOKKOS. Currently looks for AMD only.
+kokkos_regex="gfx(.*)"
+supported_arch="900 906 908"
+declare -A arch_array
+echo "Supported KOKKOS GFX: $supported_arch"
+
+# Store arch in associative array
+for arch in $supported_arch; do
+  arch_array[$arch]=""
+done
+
+if [[ "$AOMP_GPU" =~ $kokkos_regex ]]; then
+  matched_arch=${BASH_REMATCH[1]}
+else
+  echo "Error: Cannot determine KOKKOS_ARCH"
+fi
+
+# Check if matched_arch is present in array
+if [[  -v arch_array[$matched_arch] ]]; then
+  KOKKOS_ARCH=${KOKKOS_ARCH:-$matched_arch}
+else
+  echo "Error: gfx"$matched_arch" is currently not supported in KOKKOS"
+  exit 1
+fi
+
+echo AOMP_GPU    = $AOMP_GPU
+echo KOKKOS_ARCH = $KOKKOS_ARCH
+echo AOMP        = $AOMP
 
 if [ "$AOMP_GPU" == "" ] || [ "$AOMP_GPU" == "unknown" ]; then
   echo Error: AOMP_GPU not properly set...exiting.
@@ -115,32 +141,28 @@ fi
 function patchkokkos(){
 patchfile1=/tmp/kokkos1_$$.patch
 /bin/cat >$patchfile1 <<"EOF"
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 93585c78..00ccc384 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -139,7 +139,7 @@ ENDIF()
- # I really wish these were regular variables
- # but scoping issues can make it difficult
- GLOBAL_SET(KOKKOS_COMPILE_OPTIONS)
--GLOBAL_SET(KOKKOS_LINK_OPTIONS -DKOKKOS_DEPENDENCE)
-+GLOBAL_SET(KOKKOS_LINK_OPTIONS -lomptarget -DKOKKOS_DEPENDENCE)
- GLOBAL_SET(KOKKOS_CUDA_OPTIONS)
- GLOBAL_SET(KOKKOS_CUDAFE_OPTIONS)
- GLOBAL_SET(KOKKOS_XCOMPILER_OPTIONS)
-diff --git a/Makefile.kokkos b/Makefile.kokkos
-index 7a425e7a..9190c0c5 100644
---- a/Makefile.kokkos
-+++ b/Makefile.kokkos
-@@ -157,7 +157,7 @@ KOKKOS_INTERNAL_COMPILER_PGI         := $(call kokkos_has_string,$(KOKKOS_CXX_VE
- KOKKOS_INTERNAL_COMPILER_XL          := $(strip $(shell $(CXX) -qversion       2>&1 | grep XL                  | wc -l))
- KOKKOS_INTERNAL_COMPILER_CRAY        := $(strip $(shell $(CXX) -craype-verbose 2>&1 | grep "CC-"               | wc -l))
- KOKKOS_INTERNAL_COMPILER_NVCC        := $(strip $(shell echo "$(shell export OMPI_CXX=$(OMPI_CXX); export MPICH_CXX=$(MPICH_CXX); $(CXX) --version 2>&1 | grep nvcc | wc -l)>0" | bc))
--KOKKOS_INTERNAL_COMPILER_CLANG       := $(call kokkos_has_string,$(KOKKOS_CXX_VERSION),clang)
-+KOKKOS_INTERNAL_COMPILER_CLANG       := 1
- KOKKOS_INTERNAL_COMPILER_APPLE_CLANG := $(call kokkos_has_string,$(KOKKOS_CXX_VERSION),Apple LLVM)
- KOKKOS_INTERNAL_COMPILER_HCC         := $(call kokkos_has_string,$(KOKKOS_CXX_VERSION),HCC)
- KOKKOS_INTERNAL_COMPILER_GCC         := $(call kokkos_has_string,$(KOKKOS_CXX_VERSION),GCC)
+diff --git a/core/unit_test/CMakeLists.txt b/core/unit_test/CMakeLists.txt
+index b616e80f..0495f630 100644
+--- a/core/unit_test/CMakeLists.txt
++++ b/core/unit_test/CMakeLists.txt
+@@ -138,7 +138,7 @@ foreach(Tag Threads;Serial;OpenMP;Cuda;HPX;OpenMPTarget;HIP;SYCL)
+         Reducers_a
+         Reducers_b
+         Reducers_c
+-        Reducers_d
++        #Reducers_d
+         Reductions_DeviceView
+         Scan
+         SharedAlloc
+@@ -309,7 +309,7 @@ IF(KOKKOS_ENABLE_OPENMPTARGET
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_a.cpp
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_b.cpp
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_c.cpp
+-    ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_d.cpp
++#    ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_d.cpp
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_ViewMapping_b.cpp
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_TeamBasic.cpp
+     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Scan.cpp
 EOF
   echo patch -p1 $patchfile1
   patch -p1 < $patchfile1
@@ -160,7 +182,12 @@ if [ ! -d $KOKKOS_SOURCE_DIR ] ; then
    fi
    cd $KOKKOS_SOURCE_DIR
    git checkout $KOKKOS_TAG
-   patchkokkos
+   if [ "$PATCH" != 0 ]; then
+     echo "patching..."
+     patchkokkos
+   else
+     echo "PATCH=0 - not patching KOKKOS"
+   fi
 else 
    echo
    echo "  WARNING: Directory $KOKKOS_SOURCE_DIR already exists."
@@ -195,23 +222,19 @@ if [ "$kokkos_backend" == "hip" ] ; then
 else
    # ensure kokkos finds AOMP clang first
    export PATH=$AOMP/bin:$PATH
-   $AOMP_CMAKE   \
-   -DCMAKE_CXX_COMPILER=$AOMP/bin/clang++ \
-   -DCMAKE_CXX_STANDARD=17 \
-   -DCMAKE_CXX_FLAGS="-std=c++17" -O3 \
-   -target $AOMP_CPUTARGET \
-   -fopenmp \
-   -fopenmp-targets=amdgcn-amd-amdhsa \
-   -Xopenmp-target=amdgcn-amd-amdhsa \
-   -march=$AOMP_GPU \
-   -DCMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR \
-   -DKokkos_ENABLE_OPENMP=On \
-   -DKokkos_ARCH_HSW=On \
-   -DKokkos_ENABLE_HWLOC=On  \
-   -DKokkos_HWLOC_DIR=$HWLOC_DIR \
-   -DKokkos_ENABLE_OPENMPTARGET=On \
-   -DKokkos_ENABLE_TESTS=On \
-   $KOKKOS_SOURCE_DIR
+   ARGS=( 
+    -D CMAKE_BUILD_TYPE=Debug
+    -D CMAKE_CXX_STANDARD=17
+    -D CMAKE_CXX_EXTENSIONS=OFF
+    -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
+    -D Kokkos_ARCH_VEGA"$KOKKOS_ARCH"=ON
+    -D CMAKE_CXX_COMPILER=$AOMP/bin/clang++
+    -D Kokkos_ENABLE_OPENMP=ON
+    -D Kokkos_ENABLE_OPENMPTARGET=ON
+    -D Kokkos_ENABLE_COMPILER_WARNINGS=ON
+    -D Kokkos_ENABLE_TESTS=ON
+   )
+   cmake "${ARGS[@]}" $KOKKOS_SOURCE_DIR
 fi
 if [ $? != 0 ] ; then 
    echo
