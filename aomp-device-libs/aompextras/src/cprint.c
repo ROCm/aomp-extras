@@ -13,6 +13,9 @@ void f90print_(char *s) {
 void f90printi_(char *s, int *i) {
   printf("%s %d\n", s, *i);
 }
+void f90printl_(char *s, long *i) {
+  printf("%s %ld\n", s, *i);
+}
 void f90printf_(char *s, float *f) {
   printf("%s %f\n", s, *f);
 }
