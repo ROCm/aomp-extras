@@ -95,7 +95,6 @@ function patchrepo(){
 
 thisdir=$(getdname $0)
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
-AOMP_CMAKE=${AOMP_CMAKE:-cmake}
 aomp_repos=$HOME/git/aomp
 raja_source_dir=$aomp_repos/raja
 raja_url=https://github.com/llnl/raja
@@ -103,6 +102,13 @@ mygpu=`$thisdir/mygpu`
 AOMP_GPU=${AOMP_GPU:-$mygpu}
 RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
 NUM_THREADS=${NUM_THREADS:-8}
+AOMP_CMAKE=${AOMP_CMAKE:-cmake}
+if $AOMP_CMAKE --version > /dev/null 2>&1 ; then
+  $AOMP_CMAKE --version
+else
+  echo Error: cmake not found. Try using AOMP_CMAKE env variable.
+  exit 1
+fi
 
 if [ "$1" == "hip" ] ; then
     raja_backend="hip"
