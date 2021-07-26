@@ -145,11 +145,6 @@ add_custom_command( OUTPUT clang-ocl.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl > clang-ocl.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl)
 
-# mymcpu reads the codename by searching for pciid from this generated gputable. 
-add_custom_command( OUTPUT gputable.txt
-   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt)
-
 add_custom_command( OUTPUT modulefile
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile ${CMAKE_CURRENT_BINARY_DIR}/modulefile
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile)
@@ -157,7 +152,7 @@ add_custom_command( OUTPUT modulefile.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
-add_custom_target(utils_scripts ALL DEPENDS openmpi_set_cu_mask.phantom cloc.sh.phantom raja_build.sh.phantom kokkos_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
+add_custom_target(utils_scripts ALL DEPENDS openmpi_set_cu_mask.phantom cloc.sh.phantom raja_build.sh.phantom kokkos_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom modulefile.phantom aompExtractRegion.phantom)
 
 # We need prepare-builtins in the AOMP distribution to build bc libs for components
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
@@ -181,7 +176,6 @@ install(PROGRAMS
    ${CMAKE_CURRENT_BINARY_DIR}/aompcc
    ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
    ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
-   ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
    ${CMAKE_CURRENT_BINARY_DIR}/aompversion
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
