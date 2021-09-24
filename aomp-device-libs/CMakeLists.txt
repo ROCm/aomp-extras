@@ -44,7 +44,6 @@ set(AMDGCN_DEP_LIST)
 add_subdirectory(irif)
 # cuda2gcn and extra hip are merged into aompextras
 add_subdirectory(aompextras)
-add_subdirectory(libm)
 
 #  I don't see why we need cudamath, so I am deleting for now. 
 #add_subdirectory(cudamath)
