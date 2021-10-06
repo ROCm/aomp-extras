@@ -109,6 +109,16 @@ oa="$thisdir/offload-arch"
 if [ ! -f $oa ] ; then 
   oa=$AOMP/bin/offload-arch
 fi
+if [ ! -f $oa ] ; then
+  oa=$thisdir/bin/amdgpu-arch
+fi
+if [ ! -f $oa ] ; then
+  oa=$AOMP/bin/amdgpu-arch
+fi
+if [ ! -f $oa ] ; then
+  echo "ErrorMissingTool"
+  exit 1
+fi
 if [ "$TYPERUN" == "mygpu" ] ; then
    gpuname=`$oa`
    if [ "$gpuname" == "" ] ; then 
