@@ -125,6 +125,7 @@ if [ "$TYPERUN" == "mygpu" ] ; then
       gpuname="$unknown_value"
       rc=1
    fi
+   gpuname=`echo $gpuname | cut -d" " -f1`
    if [ -z "$MODE" ]; then
      echo $gpuname
    else
@@ -137,6 +138,7 @@ else
       codename="$unknown_value"
       rc=1
    fi
+   codename=`echo $codename | cut -d" " -f1`
    echo $codename
 fi
 
