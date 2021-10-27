@@ -168,4 +168,4 @@ install(PROGRAMS
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
    ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
    ${CMAKE_CURRENT_BINARY_DIR}/modulefile
-   DESTINATION "bin")
+   DESTINATION "${DEVEL_PACKAGE}bin")
