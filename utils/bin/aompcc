@@ -46,6 +46,9 @@ PROGVERSION="X.Y-Z"
 # EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the 
 # Software License Agreement.
 # 
+
+# FIXME: Remove this after backend makes this default
+TEMP_FIX_ARGS="-mllvm -amdgpu-fixed-function-abi"
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
@@ -374,12 +377,12 @@ elif [ "$INPUT_FTYPE" == "cl" ] ; then
 
 elif [ "$INPUT_FTYPE" == "cpp" ]  || [ "$INPUT_FTYPE" == "cxx" ] ; then
    # OpenMP c++
-   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU $TEMP_FIX_ARGS"
    CLANG_CMD="clang++"
 
 elif [ "$INPUT_FTYPE" == "c" ] ; then 
    # OpenMP c
-   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU $TEMP_FIX_ARGS"
    CLANG_CMD="clang"
 
 elif [ "$INPUT_FTYPE" == "f" ] ; then 
