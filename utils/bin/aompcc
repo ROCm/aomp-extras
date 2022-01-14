@@ -48,7 +48,7 @@ PROGVERSION="X.Y-Z"
 # 
 
 # FIXME: Remove this after backend makes this default
-TEMP_FIX_ARGS="-mllvm -amdgpu-fixed-function-abi"
+TEMP_FIX_ARGS=""
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
@@ -124,13 +124,25 @@ function version(){
 }
 
 function runcmd(){
-   THISCMD=$1
+   if [ $# -eq 3 ]; then
+      THISCMD="$1 \"$2\" \"$3\""
+      outfile="$2"
+      infile="$3"
+   else
+      THISCMD="$1"
+   fi
    if [ $DRYRUN ] ; then
       echo "$THISCMD"
    else 
       [ $VERBOSE ] && echo "$THISCMD"
-      $THISCMD
-      rc=$?
+      if [ $# -eq 3 ]; then
+         # Quotes are necessary to safeguard against file paths with spaces.
+         $1 "$outfile" "$infile"
+         rc=$?
+      else
+         $THISCMD
+         rc=$?
+      fi
       if [ $rc != 0 ] ; then 
          echo "ERROR:  The following command failed with return code $rc."
          echo "        $THISCMD"
@@ -164,7 +176,7 @@ INCLUDES=""
 PASSTHRUARGS=""
 INPUTFILES=""
 #  Argument processing
-while [ $# -gt 0 ] ; do 
+while [ $# -gt 0 ] ; do
    case "$1" in 
       -q)               QUIET=true;;
       --quiet)          QUIET=true;;
@@ -186,6 +198,7 @@ while [ $# -gt 0 ] ; do
       -O0) 		LLVMOPT=0 ;; 
       -o) 		OUTFILE=$2; shift ;; 
       -t)		TMPDIR=$2; shift ;; 
+      --offload-arch=*) AOMP_GPU=`echo $1 | sed "s/--offload-arch=//g"`;;
       --offload-arch)   AOMP_GPU=$2; shift ;;
       -aomp)            AOMP=$2; shift ;;
       -triple)          TARGET_TRIPLE=$2; shift ;;
@@ -203,14 +216,21 @@ while [ $# -gt 0 ] ; do
 	if [ $dash == "-" ] ; then
 	   PASSTHRUARGS+=" $1"
         else
-	   INPUTFILES+=" $1"
+	   if [ "$INPUTFILES" == "" ]; then
+	      INPUTFILES+="$1"
+	   else
+	      INPUTFILES+=",$1"
+	   fi
         fi
    esac
    shift
 done
 
 fcount=0
-for __input_file in `echo $INPUTFILES` ; do
+
+# INPUTFILES is comma separated, temporarily set IFS to comma.
+IFS=,
+for __input_file in $INPUTFILES ; do
    fcount=$(( fcount + 1 ))
    if [ $fcount == 1 ] ; then
       FIRST_INPUT_FILE_NAME=$__input_file
@@ -220,6 +240,7 @@ for __input_file in `echo $INPUTFILES` ; do
       exit $DEADRC
    fi
 done
+IFS=" "
 if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then
    echo "ERROR:  No File specified."
    exit $DEADRC
@@ -241,10 +262,11 @@ CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 
 # Determine which gfx processor to use, default to Vega (gfx900)
 if [ ! $AOMP_GPU ] ; then 
-   # Use the mygpu in pair with this script, no the pre-installed one.
-   AOMP_GPU=`$cdir/mygpu -d gfx900`
-   if [ "$AOMP_GPU" == "" ] ; then 
-      AOMP_GPU="gfx900"
+   # Use the mygpu in pair with this script, not the pre-installed one.
+   AOMP_GPU=`$cdir/mygpu`
+   if [ "$AOMP_GPU" == "" ] || [ "$AOMP_GPU" == "unknown" ] ; then
+      echo "Valid GPU not detected. Please specify --offload-arch or set AOMP_GPU."
+      exit 1
    fi
 fi
 
@@ -262,7 +284,7 @@ RUNDATE=`date`
 
 # Parse FIRST_INPUT_FILE_NAME for filetype, directory, and filename
 INPUT_FTYPE=${FIRST_INPUT_FILE_NAME##*\.}
-INDIR=$(getdname $FIRST_INPUT_FILE_NAME)
+INDIR=$(getdname "$FIRST_INPUT_FILE_NAME")
 FILENAME=${FIRST_INPUT_FILE_NAME##*/}
 # FNAME has the filetype extension removed, used for naming intermediate filenames
 FNAME=${FILENAME%.*}
@@ -277,7 +299,7 @@ if [ -z $OUTFILE ] ; then
    fi
 else 
 #  Use the specified OUTFILE
-   OUTDIR=$(getdname $OUTFILE)
+   OUTDIR=$(getdname "$OUTFILE")
    OUTFILE=${OUTFILE##*/}
 fi 
 
@@ -287,7 +309,7 @@ ROCC_DIR=$sdir
 
 TMPNAME="aompcc-tmp-$$"
 TMPDIR=${TMPDIR:-/tmp/$TMPNAME}
-if [ -d $TMPDIR ] ; then 
+if [ -d "$TMPDIR" ] ; then
    KEEPTDIR=true
 else 
    if [ $DRYRUN ] ; then
@@ -299,14 +321,14 @@ else
 fi
 
 # Be sure not to delete the output directory
-if [ $TMPDIR == $OUTDIR ] ; then 
+if [ "$TMPDIR" == "$OUTDIR" ] ; then
    KEEPTDIR=true
 fi
-if [ ! -d $TMPDIR ] && [ ! $DRYRUN ] ; then 
+if [ ! -d "$TMPDIR" ] && [ ! $DRYRUN ] ; then
    echo "ERROR:  Directory $TMPDIR does not exist or could not be created"
    exit $DEADRC
 fi 
-if [ ! -d $OUTDIR ] && [ ! $DRYRUN ]  ; then 
+if [ ! -d "$OUTDIR" ] && [ ! $DRYRUN ]  ; then
    echo "ERROR:  The output directory $OUTDIR does not exist"
    exit $DEADRC
 fi 
@@ -320,7 +342,7 @@ if [ $VERBOSE ] ; then
    echo "#Info:  Run date:	$RUNDATE"
    echo "#Info:  Input files:	$INPUTFILES"
    echo "#Info:  Code object:	$OUTDIR/$OUTFILE"
-   [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR" 
+   [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR"
    echo "#   "
 fi 
 
@@ -413,25 +435,28 @@ if [ $GENASM ] ; then
 fi
 
 __INPUTS=""
-for __input_file in `echo $INPUTFILES` ; do
+IFS=,
+for __input_file in $INPUTFILES; do
   _ftype=${__input_file##*\.}
   if [ "$_ftype" == "hip" ] ; then
-     __INPUTS+=" -x hip $__input_file"
+     CLANG_ARGS+=" -x hip"
   elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "cpp" ] ; then
-     __INPUTS+=" -x hip $__input_file"
+     CLANG_ARGS+=" -x hip"
   elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "hpp" ] ; then
-     __INPUTS+=" -x hip $__input_file"
+     CLANG_ARGS+=" -x hip"
   elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "c" ] ; then
-     __INPUTS+=" -x hip $__input_file"
+     CLANG_ARGS+=" -x hip"
   elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "h" ] ; then
-     __INPUTS+=" -x hip $__input_file"
-  else
-     __INPUTS+=" $__input_file"
+     CLANG_ARGS+=" -x hip"
   fi
+  __INPUTS+=" $__input_file"
 done
+IFS=" "
 
-rc=0
-runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS $PASSTHRUARGS $__INPUTS -o $OUTDIR/$OUTFILE"
+# Remove space at beginning of __INPUTS string if it exists.
+__ADJUSTEDINPUTS=$(echo $__INPUTS | sed "s/^[[:space:]]//")
+
+runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS $PASSTHRUARGS -o " "$OUTDIR/$OUTFILE" "$__ADJUSTEDINPUTS"
 
 # FIXME:  This needs to be cleaned up and tested
 if [ $GENLL ] ; then
