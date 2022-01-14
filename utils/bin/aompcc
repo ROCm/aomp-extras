@@ -260,7 +260,7 @@ fi
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 
-# Determine which gfx processor to use, default to Vega (gfx900)
+# Determine which gfx processor to use.
 if [ ! $AOMP_GPU ] ; then 
    # Use the mygpu in pair with this script, not the pre-installed one.
    AOMP_GPU=`$cdir/mygpu`
