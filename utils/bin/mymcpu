@@ -115,8 +115,17 @@ fi
 if [ ! -f $oa ] ; then
   oa=$AOMP/bin/amdgpu-arch
 fi
+
+# Finally, follow mygpu symlink. This mainly solves
+# the issue when someone uses /usr/bin/mygpu which
+# returns ErrorMissingTool if AOMP is not set.
+symlink=`readlink $thisdir/mygpu`
+parentdir=`dirname $thisdir/$symlink`
+oa=$parentdir/offload-arch
+
 if [ ! -f $oa ] ; then
   echo "ErrorMissingTool"
+  echo "Setting AOMP=/path/to/aomp/install may resolve the issue."
   exit 1
 fi
 if [ "$TYPERUN" == "mygpu" ] ; then
