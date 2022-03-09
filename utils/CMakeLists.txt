@@ -11,7 +11,7 @@
 #
 ##===----------------------------------------------------------------------===##
 
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   project(aomputils)
 endif()
@@ -23,7 +23,6 @@ find_package(LLVM QUIET CONFIG
   ${LLVM_DIR}
   NO_DEFAULT_PATH
 )
-find_package(ZLIB)
 
 if (LLVM_DIR)
   if("{CMAKE_INSTALL_PREFIX}" STREQUAL "")
@@ -154,21 +153,7 @@ add_custom_command( OUTPUT modulefile.phantom
 
 add_custom_target(utils_scripts ALL DEPENDS openmpi_set_cu_mask.phantom cloc.sh.phantom raja_build.sh.phantom kokkos_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom modulefile.phantom aompExtractRegion.phantom)
 
-# We need prepare-builtins in the AOMP distribution to build bc libs for components
-list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
-include(AddLLVM)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fno-rtti")
-add_definitions(${LLVM_DEFINITIONS})
-include_directories(${LLVM_INCLUDE_DIR})
-add_executable(prepare-builtins ${CMAKE_CURRENT_SOURCE_DIR}/src/prepare-builtins.cpp)
-llvm_map_components_to_libnames(llvm_libs support core bitreader bitwriter)
-target_link_libraries(prepare-builtins ${llvm_libs} ZLIB::ZLIB)
-
-add_custom_target(prepare-builtins-bin ALL DEPENDS ${PREPARE_BUILTINS})
-
 install(PROGRAMS 
-	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
-	#   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
    ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
    ${CMAKE_CURRENT_BINARY_DIR}/openmpi_set_cu_mask
    ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
@@ -182,5 +167,4 @@ install(PROGRAMS
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
    ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
    ${CMAKE_CURRENT_BINARY_DIR}/modulefile
-   ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
    DESTINATION "bin")
