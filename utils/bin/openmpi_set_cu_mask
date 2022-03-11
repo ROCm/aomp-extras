@@ -4,23 +4,16 @@
 #                       builds HSA_CU_MASK accordingly then launches
 #                       the MPI process. This script demonstrates how to
 #                       distribute a GPU across multiple ranks of an MPI
-#                       job into mutually exclusive CU sets
+#                       job into mutually exclusive CU sets and across
+#                       multiple devices.
 #
 #  Limitations:
-#  1 Only works with AOMP 13.0-2 or greater. This has a patched rocr/hsa
-#    runtime to support the HSA_CU_MASK env variable. Get AOMP 13.0-2
-#    here: https://github.com/ROCm-Developer-Tools/aomp/releases/tag/rel_13.0-2
-#  2 Only works with GPUs that have less than 64 CUs.
-#
-#  3 Only works with OpenMPI because OpenMPI sets certain environment variables
-#  4 Only creates masks that are mutually exclusive of each other.
+#  1 Only works with AOMP 15.0-0 or greater.
+#  2 Only works with OpenMPI because OpenMPI sets certain environment variables
+#  3 Only creates masks that are mutually exclusive of each other.
 #    That is, the MPI processes will not share CUs.
-#  5 Because of 4, this demo script only works when number of CUs is
+#  4 Because of 4, this demo script only works when number of CUs is
 #    divisible by number of local MPI processes.
-#
-#  Restrictions 3,4, & 5 are artifacts of this scripted implementation.
-#  Implementation by a workload manager process launch tool may be
-#  more flexible in setting HSA_CU_MASK.
 #
 #  Example Usage:
 #  mpirun -np 4 /usr/lib/aomp/bin/openmpi_set_cu_mask <MPI_APP_BINARY> <MPI_APP_ARGS>
@@ -28,6 +21,8 @@
 #
 #  Written by Greg Rodgers 
 #  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
+#  Updated on 3/11 by Greg Rodgers to work with multiple devices
+#  Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
 
 PROGVERSION=X.Y-Z
 function version(){
@@ -37,9 +32,9 @@ function version(){
 [ "$1" == "--version" ] && version
 
 #  Get environment variables set by OpenMPI
-_num_local_procs=$OMPI_COMM_WORLD_LOCAL_SIZE
-_local_proc_num=$OMPI_COMM_WORLD_LOCAL_RANK
-if [ -z "$_num_local_procs" ] ; then 
+_num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
+_local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
+if [ -z "$_num_local_ranks" ] ; then
    echo "ERROR: $0 is intended to be run with OpenMPI (mpirun)"
    exit 1
 fi
@@ -58,30 +53,65 @@ if [ ! -f $AOMP/bin/rocminfo ] ; then
    echo "       Please correct the installation of AOMP"
    exit 1
 fi
-# Assume the number of GPU cus is maximum CU count of all agents 
-# except the first agent which is the CPU agent.
-_number_of_CUs=0
-_ignore_CPU_count=1
-for last_cu_count in `$AOMP/bin/rocminfo | grep "Compute Unit:" | cut -d":" -f2` ; do
-   if [[ ( $_ignore_CPU_count == 1 ) ]] ; then
-      _ignore_CPU_count=0
-   else
-      if [[ ( $last_cu_count > $_number_of_CUs ) ]] ; then
-         _number_of_CUs=$last_cu_count
-      fi
-   fi
-done
-
-# This script is only tested where CUs can be divided evenly across MPI ranks
-_rem=$(($_number_of_CUs%_num_local_procs))
-if [ $_rem != 0 ] ; then
-   echo "ERROR: The number of CUs ($_number_of_CUs) can not be divided by $_num_local_procs"
+# Get number of GPUS from rocm_agent_enumerator
+_actual_num_devices=`$AOMP/bin/rocm_agent_enumerator | wc -l`
+_actual_num_devices=$(( $_actual_num_devices - 1 ))
+if [[ $_actual_num_devices -lt 1  ]] ; then
+   echo "ERROR: No GPUS available"
    exit 1
 fi
 
-#  Build the CU mask for this process
-_bits_to_set=$(($_number_of_CUs/$_num_local_procs))
-_bits_to_shift=$(($_local_proc_num * $_bits_to_set))
+# Find GPU with largest number of CUs
+_number_of_CUs=0
+for last_cu_count in `$AOMP/bin/rocminfo | grep -E "Compute Unit:| Device Type:" | cut -d":" -f2` ; do
+  if [ $last_cu_count == "CPU" ] ; then 
+     _last_device_type_was_gpu=0
+  elif [ $last_cu_count == "GPU" ] ; then 
+     _last_device_type_was_gpu=1
+  else
+     if [[ $_last_device_type_was_gpu == 1 ]] ; then
+        if [[ $last_cu_count -gt $_number_of_CUs ]] ; then
+            _number_of_CUs=$last_cu_count
+        fi
+     fi
+  fi
+done
+
+# Calculate number of GPUs to use to evenly spread ranks across GPUs
+_num_devices=$_actual_num_devices
+_rem1=$(( $_num_local_ranks % $_num_devices ))
+while [ $_rem1 != 0 ] ; do
+   _num_devices=$(( $_num_devices - 1 ))
+   _rem1=$(( $_num_local_ranks % $_num_devices ))
+done
+if [ $_actual_num_devices != $_num_devices ] ; then
+   # give warning on rank 0 if number of devices were trimmed
+   if [ $_local_rank_num == 0 ] ; then
+      echo "WARNING: The number of MPI ranks cannot be divided by available GPUs"
+      echo "         The number of MPI ranks: $_num_local_ranks"
+      echo "         Available GPUs:          $_actual_num_devices"
+      echo "         Selected number of GPUs: $_num_devices"
+   fi
+fi
+_total_number_of_CUs=$(( $_num_devices * $_number_of_CUs ))
+_num_local_ranks_per_GPU=$(( $_num_local_ranks / $_num_devices ))
+_number_of_CUs_per_GPU=$(( $_total_number_of_CUs / $_num_devices ))
+_device_num=$(( $_local_rank_num / $_num_local_ranks_per_GPU ))
+_relative_rank_num=$(( $_local_rank_num / $_num_devices ))
+
+# This script is only tested where CUs can be divided evenly across MPI ranks
+_rem2=$(($_total_number_of_CUs%_num_local_ranks))
+if [ $_rem2 != 0 ] ; then
+   echo "ERROR: The total number of CUs ($_total_number_of_CUs) can not be divided by $_num_local_ranks"
+   echo "       The number of CUs per GPU is: $_number_of_CUs"
+   echo "       The number of GPUs is: $_num_devices"
+   exit 1
+fi
+
+#  Build the CU mask for this rank
+_bits_to_set=$(( $_number_of_CUs / $_num_local_ranks_per_GPU ))
+#  This formula keeps adjacent ranks on same GPU which should be preferred
+_bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_number_of_CUs_per_GPU) ))
 # use bc because these values can be very large
 _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
 _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
@@ -92,9 +122,9 @@ for i in `seq 1 $_lz` ; do
 done
 _mask="0x$_mask"
 
-echo "HSA_CU_MASK:$_mask proc_num:$_local_proc_num"
-export ROCM_VISIBLE_DEVICES=0
+export ROCM_VISIBLE_DEVICES=$_device_num
 export HSA_CU_MASK=$ROCM_VISIBLE_DEVICES:$_mask
+printf "rank %4s HSA_CU_MASK %20s\n" $_local_rank_num $HSA_CU_MASK
 
 # execute the application
 $*
