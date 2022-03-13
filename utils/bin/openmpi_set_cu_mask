@@ -12,8 +12,6 @@
 #  2 Only works with OpenMPI because OpenMPI sets certain environment variables
 #  3 Only creates masks that are mutually exclusive of each other.
 #    That is, the MPI processes will not share CUs.
-#  4 Because of 4, this demo script only works when number of CUs is
-#    divisible by number of local MPI processes.
 #
 #  Example Usage:
 #  mpirun -np 4 /usr/lib/aomp/bin/openmpi_set_cu_mask <MPI_APP_BINARY> <MPI_APP_ARGS>
@@ -23,6 +21,7 @@
 #  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
 #  Updated on 3/11 by Greg Rodgers to work with multiple devices
 #  Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
+#
 
 
 PROGVERSION=X.Y-Z
@@ -61,7 +60,6 @@ if [[ $_available_devices -lt 1  ]] ; then
    echo "ERROR: No GPUS available"
    exit 1
 fi
-_available_devices=1
 
 # Find GPU with largest number of CUs
 _actual_number_of_CUs_per_GPU=0
