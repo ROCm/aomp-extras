@@ -1,28 +1,58 @@
 #!/bin/bash
 #
 #  openmpi_set_cu_mask: Script that reads OpenMPI environment variables and
-#                       builds HSA_CU_MASK accordingly then launches
-#                       the MPI process. This script demonstrates how to
-#                       distribute a GPU across multiple ranks of an MPI
+#                       rocminfo to set HSA_CU_MASK, ROCM_VISIBLE_DEVICES, and
+#                       OMPX_TARGET_TEAM_SLOTS.  This script demonstrates how
+#                       to distribute GPUs across multiple ranks of an MPI
 #                       job into mutually exclusive CU sets and across
-#                       multiple devices.
+#                       multiple devices. The script is an application wrapper
+#                       "wedge" that is launched by mpirun or a cluster
+#                       resource manager. See Examples below.
 #
 #  Limitations:
-#  1 Only works with AOMP 15.0-0 or greater.
-#  2 Only works with OpenMPI because OpenMPI sets certain environment variables
-#  3 Only creates masks that are mutually exclusive of each other.
-#    That is, the MPI processes will not share CUs.
+#  - Works with AOMP 15.0-0 or ROCM 5.0 or greater
+#  - Depends on environment variables OMPI_COMM_WORLD_LOCAL_SIZE and
+#    OMPI_COM_WORLD_LOCAL_RANK. These are set by openmpi's mpirun.
+#  - Only creates masks that are mutually exclusive of each other. That is,
+#    the MPI processes will not share CUs. If number of ranks not perfectly
+#    divisible, some resources will be wasted.
+#  - This script currently assumes no more than one GPU per rank.
 #
-#  Example Usage:
-#  mpirun -np 4 /usr/lib/aomp/bin/openmpi_set_cu_mask <MPI_APP_BINARY> <MPI_APP_ARGS>
-#  mpirun -np 6 /usr/lib/aomp/bin/openmpi_set_cu_mask
+#  Example Setup:
+#    Set variables used for all examples. Use a dummy application with no args
+#      _cu_wedge="/usr/lib/aomp/bin/openmpi_set_cu_mask"
+#      _appbin=true
+#      _appargs=""
+#    To get stats from rank 0 set CUDIAGS to 1
+#      export CUDIAGS=1
+#    For large numbers of ranks, increase slots with a hosfile.
+#      _hostfile="/tmp/hostfile$$"
+#      echo "`hostname` slots=64" >$_hostfile
+#
+#  Usage Examples:
+#    mpirun -np  4 $_cu_wedge $_appbin $_appargs
+#    mpirun -np  8 $_cu_wedge $_appbin $_appargs
+#    mpirun -np  9 $_cu_wedge $_appbin $_appargs
+#    mpirun -np 23 $_cu_wedge $_appbin $_appargs
+#    mpirun -np 64 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
+#    mpirun -np 60 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
+#    mpirun -np 55 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
 #
 #  Written by Greg Rodgers 
 #  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
-#  Updated on 3/11 by Greg Rodgers to work with multiple devices
+#  Updated on 3/11 by Greg Rodgers to work with multiple devices,
+#    allow any and set OMPX_TARGET_TEAM_SLOTS
 #  Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
 #
-
+#  README:
+#    An rplace is a set of CUs for a rank. This script calculates the number of
+#    rplaces needed to contain the specified number of ranks. The number of CUs
+#    in an rplace is determined by dividing the number of CUs per GPU by the
+#    number of rplaces per GPU. The number of CUs in an rplace is the number
+#    of physical locations for an OpenMP team to execute. This script exports
+#    that number to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
+#    could be used to adjust the number of desired teams in a target region.
+#
 
 PROGVERSION=X.Y-Z
 function version(){
@@ -36,47 +66,49 @@ _num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
 _local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
 if [ -z "$_num_local_ranks" ] ; then
    echo "ERROR: $0 is intended to be run with OpenMPI (mpirun)"
+   echo "       This script needs these environment variables to be set:"
+   echo "       OMPI_COMM_WORLD_LOCAL_SIZE and OMPI_COMM_WORLD_LOCAL_RANK"
    exit 1
 fi
 
+# Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
    AOMP="_AOMP_INSTALL_DIR_"
+fi
+if [ ! -d $AOMP ] ; then
+   AOMP="/opt/rocm"
 fi
 if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
    echo "       Please install AOMP or correctly set env-var AOMP"
    exit 1
 fi
-if [ ! -f $AOMP/bin/rocminfo ] ; then
-   echo "ERROR: Could not find binary $AOMP/bin/rocminfo"
-   echo "       Please correct the installation of AOMP"
-   exit 1
-fi
-# Get number of GPUS from rocm_agent_enumerator
-_available_devices=`$AOMP/bin/rocm_agent_enumerator | wc -l`
-_available_devices=$(( $_available_devices - 1 ))
-if [[ $_available_devices -lt 1  ]] ; then
-   echo "ERROR: No GPUS available"
+ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
+if [ ! -f $ROCMINFO_BINARY ] ; then
+   echo "ERROR: Could not find binary $ROCMINFO_BINARY"
+   echo "       Please correct the installation of ROCM or AOMP"
    exit 1
 fi
 
-# Find GPU with largest number of CUs
-_actual_number_of_CUs_per_GPU=0
-for last_cu_count in `$AOMP/bin/rocminfo | grep -E "Compute Unit:| Device Type:" | cut -d":" -f2` ; do
+# Find number of GPUs and number of CUs per GPU
+_available_CUs_per_device=0
+_available_devices=0
+for last_cu_count in `$ROCMINFO_BINARY | grep -E "Compute Unit:| Device Type:" | cut -d":" -f2` ; do
   if [ $last_cu_count == "CPU" ] ; then 
      _last_device_type_was_gpu=0
   elif [ $last_cu_count == "GPU" ] ; then 
      _last_device_type_was_gpu=1
   else
      if [[ $_last_device_type_was_gpu == 1 ]] ; then
-	if [[ $_actual_number_of_CUs_per_GPU == 0 ]] ; then
-           _actual_number_of_CUs_per_GPU=$last_cu_count
+        _available_devices=$(( $_available_devices + 1 ))
+	if [[ $_available_CUs_per_device == 0 ]] ; then
+           _available_CUs_per_device=$last_cu_count
 	else
-           if [[ $_actual_number_of_CUs_per_GPU != $last_cu_count ]] ; then
+           if [[ $_available_CUs_per_device != $last_cu_count ]] ; then
               echo "ERROR: Defective node! The cu_count for each GPU must be identical"
 	      echo "       Last CU count : $last_cu_count"
-	      echo "       Previous CU count : $_actual_number_of_CUs_per_GPU"
+	      echo "       Previous CU count : $_available_CUs_per_device"
 	      echo "       Number of GPUs : $_available_devices"
 	      exit 1
            fi
@@ -85,68 +117,103 @@ for last_cu_count in `$AOMP/bin/rocminfo | grep -E "Compute Unit:| Device Type:"
   fi
 done
 
-if [ $_available_devices -gt  $_num_local_ranks ] ; then
-   _num_devices=$_num_local_ranks
-else
-   _num_devices=$_available_devices
+if [[ $_available_devices -lt 1  ]] ; then
+   echo "ERROR: No GPUS available"
+   exit 1
 fi
 
-# Calculate number of GPUs to use to evenly spread ranks across GPUs
-_uncovered_ranks=$(( $_num_local_ranks % $_num_devices ))
-_num_local_ranks_per_GPU=$(( $_num_local_ranks / $_num_devices ))
-if [ $_uncovered_ranks != 0 ] ; then
-   _num_local_ranks_per_GPU=$(( $_num_local_ranks_per_GPU + 1 ))
+if [ $_available_devices -gt  $_num_local_ranks ] ; then
+   _utilized_devices=$_num_local_ranks
+else
+   _utilized_devices=$_available_devices
 fi
-_device_num=$(( $_local_rank_num / $_num_local_ranks_per_GPU ))
-_number_of_CUs_per_GPU=$_actual_number_of_CUs_per_GPU
-_rem2=$(( $_number_of_CUs_per_GPU % _num_local_ranks_per_GPU ))
-# Lower number of CUs till divisible by number of ranks per GPU
+
+# Calculate number of GPUs to use to evenly spread ranks across GPUs.
+# An rplace is a set of CUs that will be used for a rank.
+# The number of rplaces must be at least the number of ranks.
+_uncovered_ranks=$(( $_num_local_ranks % $_utilized_devices ))
+_number_of_rplaces_per_GPU=$(( $_num_local_ranks / $_utilized_devices ))
+if [ $_uncovered_ranks != 0 ] ; then
+   # If _num_local_ranks not divisible by number of GPUs,
+   # then add an extra rplace per GPU to make room for remainder.
+   _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
+fi
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+_utilized_CUs_per_device=$_available_CUs_per_device
+_rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
+# Lower utilized CUs till divisible by number of rplaces per GPU
 while [ $_rem2 != 0 ] ; do
-   _number_of_CUs_per_GPU=$(( $_number_of_CUs_per_GPU - 1 ))
-   _rem2=$(( $_number_of_CUs_per_GPU % _num_local_ranks_per_GPU ))
+   _utilized_CUs_per_device=$(( $_utilized_CUs_per_device - 1 ))
+   _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
 done
-_number_CUs_per_rank=$(( $_number_of_CUs_per_GPU / $_num_local_ranks_per_GPU ))
+_CUs_per_rplace=$(( $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU ))
 
 # Diagnostics:
-if [ $_local_rank_num == 0 ] ; then
-   echo "   RANKS: $_num_local_ranks"
-   echo "   AVAILALBLE GPUS:  $_available_devices"
-   echo "   USED GPUS:        $_num_devices"
-   echo "   SLOTS PER GPU:    $_num_local_ranks_per_GPU"
-   echo "   NUM CUs PER GPU:  $_actual_number_of_CUs_per_GPU"
-   echo "   USED CUs PER GPU: $_number_of_CUs_per_GPU"
-   echo "   CUs per SLOT:     $_number_CUs_per_rank"
-   # calculate excess ranks
-   wasted_CUs_on_each_GPU=$(( $_actual_number_of_CUs_per_GPU - $_number_of_CUs_per_GPU ))
-   _total_GPU_slots=$(( $_num_local_ranks_per_GPU * $_num_devices ))
-   _total_wasted_slots=$(( $_total_GPU_slots - $_num_local_ranks ))
-   if [ $wasted_CUs_on_each_GPU != 0 ] || [ $_total_wasted_slots != 0 ] ; then
-      echo
-      echo "   WASTED CUs per GPU:       $wasted_CUs_on_each_GPU"
-      echo "   WASTED SLOTS:             $_total_wasted_slots"
-      echo "   WASTED GPUS:              $(( $_total_wasted_slots / $_num_local_ranks_per_GPU )) "
-      echo "   WASTED SLOTS ON LAST GPU: $(( $_total_wasted_slots % $_num_local_ranks_per_GPU )) "
+if [ $_local_rank_num == 0 ] && [ "$CUDIAGS" != "" ]; then
+   _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
+   _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_available_devices ))
+   _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
+   _wasted_GPUs=$(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU ))
+   _node_cus=$(( $_available_devices * $_available_CUs_per_device ))
+   _used_cus=$(( $_num_local_ranks * $_CUs_per_rplace ))
+   _utilization=$(( ( $_used_cus * 100 ) / $_node_cus ))
+   if ! [ $_available_devices -gt $_num_local_ranks ] ; then
+      if [ $_wasted_CUs_on_each_GPU != 0 ] || [ $_total_wasted_rplaces != 0 ] ; then
+         _extra_diags=true
+      fi
    fi
+   echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
+   echo "-  OPENMPI RANKS:     $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
+   [ $_extra_diags ] && echo
+   echo "-  AVAILALBLE GPUS:   $_available_devices"
+   [ $_extra_diags ] && \
+   echo "-- USED GPUS:         $(( $_available_devices - $_wasted_GPUs ))"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED GPUS:       $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
+   [ $_extra_diags ] && echo
+   echo "-  RPLACEs PER NODE:  $_total_GPU_rplaces"
+   echo "-  RPLACEs PER GPU:   $_number_of_rplaces_per_GPU"
+   [ $_extra_diags ] && \
+   echo "-- USED RPLACEs:      $_num_local_ranks (RANKS)"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED RPLACEs:    $_total_wasted_rplaces" ; \
+   # echo "-  LAST GPU UNUSED RPLACES:  $(( $_total_wasted_rplaces % $_number_of_rplaces_per_GPU )) "
+   [ $_extra_diags ] && echo
+   echo "-  CUs PER GPU:       $_available_CUs_per_device"
+   [ $_extra_diags ] && \
+   echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
+   echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_SLOTS)"
+   echo "-  FORMULA: OMPX_TARGET_TEAM_SLOTS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
+   echo "-  NODE UTILIZATION:  $_utilization %"
+
 fi
 
-#  Build the CU mask for this rank, bits_to_set equals _number_CUs_per_rank
-_bits_to_set=$(( $_number_of_CUs_per_GPU / $_num_local_ranks_per_GPU ))
+#  Build the CU mask for this rank, bits_to_set = _CUs_per_rplace
+_bits_to_set=$_CUs_per_rplace
 #  This formula keeps adjacent ranks on same GPU which should be preferred
-_bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_number_of_CUs_per_GPU) ))
+_bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_utilized_CUs_per_device) ))
 # use bc because these values can be very large
 _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
 _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
 # Calculate the number of leading zeros needed for this mask
-_lz=$(( ( $_number_of_CUs_per_GPU / 4 ) - ${#_mask} + 1 ))
+_lz=$(( ( $_utilized_CUs_per_device / 4 ) - ${#_mask} + 1 ))
 for i in `seq 1 $_lz` ; do
     _mask="0$_mask"
 done
 _mask="0x$_mask"
 
+# Tell OpenMP CUs available per rplace for a team of threads.
+export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 export ROCM_VISIBLE_DEVICES=$_device_num
 export HSA_CU_MASK=$ROCM_VISIBLE_DEVICES:$_mask
+# [ "$CUDIAGS" != "" ] && \
 printf "rank %02d HSA_CU_MASK %20s\n" $_local_rank_num $HSA_CU_MASK
 
-# execute the application
+# Execute the application
+OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
+ROCM_VISIBLE_DEVICES=$_device_num \
+HSA_CU_MASK=$ROCM_VISIBLE_DEVICES:$_mask \
 $*
 exit $?
