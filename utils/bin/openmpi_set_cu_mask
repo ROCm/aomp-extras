@@ -122,6 +122,12 @@ if [[ $_available_devices -lt 1  ]] ; then
    exit 1
 fi
 
+_node_cus=$(( $_available_devices * $_available_CUs_per_device ))
+if [ $_num_local_ranks -gt $_node_cus ] ; then
+   echo "ERROR: Not enough node CUs ($_node_cus) for $_num_local_ranks ranks "
+   exit 1
+fi
+
 if [ $_available_devices -gt  $_num_local_ranks ] ; then
    _utilized_devices=$_num_local_ranks
 else
@@ -154,7 +160,6 @@ if [ $_local_rank_num == 0 ] && [ "$CUDIAGS" != "" ]; then
    _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_available_devices ))
    _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
    _wasted_GPUs=$(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU ))
-   _node_cus=$(( $_available_devices * $_available_CUs_per_device ))
    _used_cus=$(( $_num_local_ranks * $_CUs_per_rplace ))
    _utilization=$(( ( $_used_cus * 100 ) / $_node_cus ))
    if ! [ $_available_devices -gt $_num_local_ranks ] ; then
