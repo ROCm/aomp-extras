@@ -26,17 +26,17 @@
 #    To get stats from rank 0 set CUDIAGS to 1
 #      export CUDIAGS=1
 #    For large numbers of ranks, increase slots with a hosfile.
-#      _hostfile="/tmp/hostfile$$"
-#      echo "`hostname` slots=64" >$_hostfile
+#      _hos_tfile="/tmp/hos_tfile$$"
+#      echo "`hostname` slots=64" >$_hos_tfile
 #
 #  Usage Examples:
 #    mpirun -np  4 $_cu_wedge $_appbin $_appargs
 #    mpirun -np  8 $_cu_wedge $_appbin $_appargs
 #    mpirun -np  9 $_cu_wedge $_appbin $_appargs
 #    mpirun -np 23 $_cu_wedge $_appbin $_appargs
-#    mpirun -np 64 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
-#    mpirun -np 60 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
-#    mpirun -np 55 -hostfile $_hostfile $_cu_wedge $_appbin $_appargs
+#    mpirun -np 64 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
+#    mpirun -np 60 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
+#    mpirun -np 55 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
 #
 #  Written by Greg Rodgers 
 #  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
@@ -94,31 +94,42 @@ fi
 # Find number of GPUs and number of CUs per GPU
 _available_CUs_per_device=0
 _available_devices=0
-for last_cu_count in `$ROCMINFO_BINARY | grep -E "Compute Unit:| Device Type:" | cut -d":" -f2` ; do
+_bdfids=()
+_tfile="/tmp/rinfo_out$$"
+$ROCMINFO_BINARY | grep -E "Compute Unit:| Device Type:|BDFID:" >$_tfile
+while read _linepair ; do
+  last_cu_count=`echo $_linepair | cut -d":" -f2`
+  _fieldtype=`echo $_linepair | cut -d":" -f1`
   if [ $last_cu_count == "CPU" ] ; then 
      _last_device_type_was_gpu=0
   elif [ $last_cu_count == "GPU" ] ; then 
      _last_device_type_was_gpu=1
   else
      if [[ $_last_device_type_was_gpu == 1 ]] ; then
-        _available_devices=$(( $_available_devices + 1 ))
-	if [[ $_available_CUs_per_device == 0 ]] ; then
-           _available_CUs_per_device=$last_cu_count
-	else
-           if [[ $_available_CUs_per_device != $last_cu_count ]] ; then
-              echo "ERROR: Defective node! The cu_count for each GPU must be identical"
-	      echo "       Last CU count : $last_cu_count"
-	      echo "       Previous CU count : $_available_CUs_per_device"
-	      echo "       Number of GPUs : $_available_devices"
-	      exit 1
+        if [ "$_fieldtype" == "BDFID" ] ; then
+	   bdfids+=( $last_cu_count )
+        else
+           _available_devices=$(( $_available_devices + 1 ))
+	   if [[ $_available_CUs_per_device == 0 ]] ; then
+              _available_CUs_per_device=$last_cu_count
+	   else
+              if [[ $_available_CUs_per_device != $last_cu_count ]] ; then
+                 echo "ERROR: Defective node! The cu_count for each GPU must be identical"
+	         echo "       Last CU count : $last_cu_count"
+	         echo "       Previous CU count : $_available_CUs_per_device"
+	         echo "       Number of GPUs : $_available_devices"
+	         exit 1
+              fi
            fi
         fi
      fi
   fi
-done
+done < $_tfile
+rm $_tfile
 
 if [[ $_available_devices -lt 1  ]] ; then
-   echo "ERROR: No GPUS available"
+   echo "ERROR: Local rank $_local_rank_num found no GPUS available"
+   echo "       available_devices=$_available_devices"
    exit 1
 fi
 
@@ -209,17 +220,38 @@ for i in `seq 1 $_lz` ; do
 done
 _mask="0x$_mask"
 
+# Get NUMANODE and cpuset for this GPU identified by BDFID
+BDFID=${bdfids[$_device_num]}
+BDFIDSTR=`echo "obase=16; $BDFID" | bc`
+BDFIDSTRC="${BDFIDSTR:0:2}:${BDFIDSTR:2:2}"
+NUMANODE=`lspci -vmm -s $BDFIDSTRC | grep NUMANode | cut -d":" -f2`
+_taskset_cmd="taskset -c "
+lscpu --extended=cpu,node >$_tfile
+while read _linepair ; do
+  _nn=`echo $_linepair | awk '{print $2}'`
+  if [ $_nn == $NUMANODE ]; then
+    _cpu=`echo $_linepair | awk '{print $1}'`
+    if [ $_notfirstitem ] ; then
+       _taskset_cmd+=",$_cpu"
+    else
+       _taskset_cmd+="$_cpu"
+       _notfirstitem=1
+    fi
+  fi
+done < $_tfile
+rm $_tfile
+
 # Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
 export ROCM_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 export HSA_CU_MASK=0:$_mask
 # [ "$CUDIAGS" != "" ] && \
-printf "RANK %02d D%d HSA_CU_MASK %20s\n" $_local_rank_num $ROCM_VISIBLE_DEVICES $HSA_CU_MASK
+printf "RANK %02d D%d PCI:%5s NN:%d HSA_CU_MASK %20s \n" $_local_rank_num $ROCM_VISIBLE_DEVICES $BDFIDSTRC $NUMANODE $HSA_CU_MASK
 
-# TODO: find the cpuset that owns the selected device_num and use taskset to
-# launch the application process on that cpuset.
+# use taskset to launch the application process on the cpuset for NUMANODE
+[ "$*" == "" ] && _taskset_cmd=""
 ROCM_VISIBLE_DEVICES=$_device_num \
 OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
 HSA_CU_MASK=0:$_mask \
-$*
+$_taskset_cmd $*
 exit $?
