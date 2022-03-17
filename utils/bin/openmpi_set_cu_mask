@@ -209,16 +209,17 @@ for i in `seq 1 $_lz` ; do
 done
 _mask="0x$_mask"
 
-# Tell OpenMP CUs available per rplace for a team of threads.
-export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
+# Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
 export ROCM_VISIBLE_DEVICES=$_device_num
-export HSA_CU_MASK=$ROCM_VISIBLE_DEVICES:$_mask
+export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
+export HSA_CU_MASK=0:$_mask
 # [ "$CUDIAGS" != "" ] && \
-printf "rank %02d HSA_CU_MASK %20s\n" $_local_rank_num $HSA_CU_MASK
+printf "RANK %02d D%d HSA_CU_MASK %20s\n" $_local_rank_num $ROCM_VISIBLE_DEVICES $HSA_CU_MASK
 
-# Execute the application
-OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
+# TODO: find the cpuset that owns the selected device_num and use taskset to
+# launch the application process on that cpuset.
 ROCM_VISIBLE_DEVICES=$_device_num \
-HSA_CU_MASK=$ROCM_VISIBLE_DEVICES:$_mask \
+OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
+HSA_CU_MASK=0:$_mask \
 $*
 exit $?
