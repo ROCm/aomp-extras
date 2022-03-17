@@ -224,7 +224,7 @@ _mask="0x$_mask"
 BDFID=${bdfids[$_device_num]}
 BDFIDSTR=`echo "obase=16; $BDFID" | bc`
 BDFIDSTRC="${BDFIDSTR:0:2}:${BDFIDSTR:2:2}"
-NUMANODE=`lspci -vmm -s $BDFIDSTRC | grep NUMANode | cut -d":" -f2`
+NUMANODE=`lspci -vmm -s $BDFIDSTRC | grep -m 1 NUMANode | cut -d":" -f2`
 _taskset_cmd="taskset -c "
 lscpu --extended=cpu,node >$_tfile
 while read _linepair ; do
