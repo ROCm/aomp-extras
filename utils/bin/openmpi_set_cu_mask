@@ -223,7 +223,11 @@ _mask="0x$_mask"
 # Get NUMANODE and cpuset for this GPU identified by BDFID
 BDFID=${bdfids[$_device_num]}
 BDFIDSTR=`echo "obase=16; $BDFID" | bc`
+if [ ${#BDFIDSTR} == 3 ] ; then
+BDFIDSTRC="0${BDFIDSTR:0:1}:${BDFIDSTR:1:2}"
+else
 BDFIDSTRC="${BDFIDSTR:0:2}:${BDFIDSTR:2:2}"
+fi
 NUMANODE=`lspci -vmm -s $BDFIDSTRC | grep -m 1 NUMANode | cut -d":" -f2`
 _taskset_cmd="taskset -c "
 lscpu --extended=cpu,node >$_tfile
