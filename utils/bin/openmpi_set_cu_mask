@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-#  openmpi_set_cu_mask: Script that reads OpenMPI environment variables and
+#  openmpi_set_cu_mask: Depracated name for gpuapp utility
+#  gpuapp:              Script that reads OpenMPI environment variables and
 #                       rocminfo to set HSA_CU_MASK, ROCM_VISIBLE_DEVICES, and
 #                       OMPX_TARGET_TEAM_SLOTS.  This script demonstrates how
 #                       to distribute GPUs across multiple ranks of an MPI
@@ -17,6 +18,10 @@
 #    the MPI processes will not share CUs. If number of ranks not perfectly
 #    divisible, some resources will be wasted.
 #  - This script currently assumes no more than one GPU per rank.
+#
+#  TODO:
+#  - Use existing setting of ROCM_VISIBLE_DEVICES to filter out
+#    GPUs from rocminfo
 #
 #  Example Setup:
 #    Set variables used for all examples. Use a dummy application with no args
@@ -64,11 +69,10 @@ function version(){
 #  Get environment variables set by OpenMPI
 _num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
 _local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
+# If not started from openmpi mpirun, assume this is wrapper for single process on single GPU
 if [ -z "$_num_local_ranks" ] ; then
-   echo "ERROR: $0 is intended to be run with OpenMPI (mpirun)"
-   echo "       This script needs these environment variables to be set:"
-   echo "       OMPI_COMM_WORLD_LOCAL_SIZE and OMPI_COMM_WORLD_LOCAL_RANK"
-   exit 1
+   _num_local_ranks=1
+   _local_rank_num=0
 fi
 
 # Find location of the rocminfo binary
@@ -203,32 +207,34 @@ if [ $_local_rank_num == 0 ] && [ "$CUDIAGS" != "" ]; then
    echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_SLOTS)"
    echo "-  FORMULA: OMPX_TARGET_TEAM_SLOTS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
    echo "-  NODE UTILIZATION:  $_utilization %"
-
 fi
 
-#  Build the CU mask for this rank, bits_to_set = _CUs_per_rplace
-_bits_to_set=$_CUs_per_rplace
-#  This formula keeps adjacent ranks on same GPU which should be preferred
-_bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_utilized_CUs_per_device) ))
-# use bc because these values can be very large
-_unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
-_mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
-# Calculate the number of leading zeros needed for this mask
-_lz=$(( ( $_utilized_CUs_per_device / 4 ) - ${#_mask} + 1 ))
-for i in `seq 1 $_lz` ; do
-    _mask="0$_mask"
-done
-_mask="0x$_mask"
+if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
+   #  Build the CU mask for this rank, bits_to_set = _CUs_per_rplace
+   _bits_to_set=$_CUs_per_rplace
+   #  This formula keeps adjacent ranks on same GPU which should be preferred
+   _bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_utilized_CUs_per_device) ))
+   # use bc because these values can be very large
+   _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
+   _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
+   # Calculate the number of leading zeros needed for this mask
+   _lz=$(( ( $_utilized_CUs_per_device / 4 ) - ${#_mask} + 1 ))
+   for i in `seq 1 $_lz` ; do
+      _mask="0$_mask"
+   done
+   _mask="0x$_mask"
+fi
 
 # Get NUMANODE and cpuset for this GPU identified by BDFID
-BDFID=${bdfids[$_device_num]}
-BDFIDSTR=`echo "obase=16; $BDFID" | bc`
-if [ ${#BDFIDSTR} == 3 ] ; then
-BDFIDSTRC="0${BDFIDSTR:0:1}:${BDFIDSTR:1:2}"
+_bdfid=${bdfids[$_device_num]}
+_bdfidstr=`echo "obase=16; $_bdfid" | bc | tr '[:upper:]' '[:lower:]'`
+if [ ${#_bdfidstr} == 3 ] ; then
+   _bdfidstrc="0${_bdfidstr:0:1}:${_bdfidstr:1:2}"
 else
-BDFIDSTRC="${BDFIDSTR:0:2}:${BDFIDSTR:2:2}"
+   _bdfidstrc="${_bdfidstr:0:2}:${_bdfidstr:2:2}"
 fi
-NUMANODE=`lspci -vmm -s $BDFIDSTRC | grep -m 1 NUMANode | cut -d":" -f2`
+#NUMANODE=`lspci -vmm -s $_bdfidstrc | grep -m 1 NUMANode | cut -d":" -f2`
+NUMANODE=`cat /sys/bus/pci/devices/0000:$_bdfidstrc.0/numa_node`
 _taskset_cmd="taskset -c "
 lscpu --extended=cpu,node >$_tfile
 while read _linepair ; do
@@ -245,17 +251,21 @@ while read _linepair ; do
 done < $_tfile
 rm $_tfile
 
-# Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
+[ "$*" == "" ] && _taskset_cmd=""
 export ROCM_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
-export HSA_CU_MASK=0:$_mask
-# [ "$CUDIAGS" != "" ] && \
-printf "RANK %02d D%d PCI:%5s NN:%d HSA_CU_MASK %20s \n" $_local_rank_num $ROCM_VISIBLE_DEVICES $BDFIDSTRC $NUMANODE $HSA_CU_MASK
-
-# use taskset to launch the application process on the cpuset for NUMANODE
-[ "$*" == "" ] && _taskset_cmd=""
-ROCM_VISIBLE_DEVICES=$_device_num \
-OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
-HSA_CU_MASK=0:$_mask \
-$_taskset_cmd $*
+if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
+   # No HSA_CU_MASK when using all CUs
+   printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
+   ROCM_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
+else
+   # Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
+   export HSA_CU_MASK=0:$_mask
+   printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
+      $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
+   ROCM_VISIBLE_DEVICES=$_device_num \
+   OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
+   HSA_CU_MASK=0:$_mask \
+   $_taskset_cmd $*
+fi
 exit $?
