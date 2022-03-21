@@ -1,64 +1,68 @@
 #!/bin/bash
 #
-#  openmpi_set_cu_mask: Depracated name for gpuapp utility
-#  gpuapp:              Script that reads OpenMPI environment variables and
-#                       rocminfo to set HSA_CU_MASK, ROCM_VISIBLE_DEVICES, and
-#                       OMPX_TARGET_TEAM_SLOTS.  This script demonstrates how
-#                       to distribute GPUs across multiple ranks of an MPI
-#                       job into mutually exclusive CU sets and across
-#                       multiple devices. The script is an application wrapper
-#                       "wedge" that is launched by mpirun or a cluster
-#                       resource manager. See Examples below.
+#  gpurun: Wrapper script to execute a GPU application including OpenMPI
+#          GPU applications.  This script launches the application with the
+#          Linux 'taskset' utility to limit the application process to only
+#          CPUs in the same NUMA domain as the specified GPU.  
+#          This script sets environment variable ROCM_VISIBLE_DEVICES to
+#          specify the selected GPU. It also sets OMPX_TARGET_TEAM_SLOTS
+#          to the number of CUs available to the process.  Lastly, if
+#          necessary, it sets HSA_CU_MASK to the subset of CUs for the
+#          specified OpenMPI rank when more than one OpenMPI rank will
+#          utilize the same GPU.
+#
+#  openmpi_set_cu_mask: Depracated name for gpurun utility because gpurun
+#                       works for any gpu application.
+#  README:
+#    This script demonstrates how to distribute GPUs and their CUs
+#    across multiple ranks of an MPI job into mutually exclusive sets
+#    of CUs. When used with mpirun, this script reads OpenMPI
+#    environment variables OMPI_COMM_WORLD_LOCAL_SIZE and 
+#    OMPI_COMM_WORLD_LOCAL_RANK.
+#
+#    An rplace is a set of CUs for a rank. This script first calculates the
+#    number of rplaces needed to contain the specified number of ranks. 
+#    There will be more rplaces than ranks if number of ranks not divisible
+#    by number of GPUs. Then The number of CUs in an rplace is calculated
+#    by dividing the number of CUs per GPU by the number of rplaces per GPU.
+#    The number of CUs in an rplace is the number of physical locations
+#    available for an OpenMP team to execute. This script exports that number
+#    to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
+#    could be used by the application or runtume to adjust the number
+#    of desired teams in a target region.
 #
 #  Limitations:
-#  - Works with AOMP 15.0-0 or ROCM 5.0 or greater
-#  - Depends on environment variables OMPI_COMM_WORLD_LOCAL_SIZE and
-#    OMPI_COM_WORLD_LOCAL_RANK. These are set by openmpi's mpirun.
+#  - This script assigns no more than one GPU to the application process.
 #  - Only creates masks that are mutually exclusive of each other. That is,
 #    the MPI processes will not share CUs. If number of ranks not perfectly
-#    divisible, some resources will be wasted.
-#  - This script currently assumes no more than one GPU per rank.
+#    divisible by number of CUs or number of GPUs, some resources may be wasted.
+#  - Works with AOMP 15.0-0 or ROCM 5.0 or greater
 #
 #  TODO:
-#  - Use existing setting of ROCM_VISIBLE_DEVICES to filter out
-#    GPUs from rocminfo
+#  - Use existing setting of ROCM_VISIBLE_DEVICES to avoid those GPUs.
 #
 #  Example Setup:
-#    Set variables used for all examples. Use a dummy application with no args
-#      _cu_wedge="/usr/lib/aomp/bin/openmpi_set_cu_mask"
+#    Use a dummy application with no args
 #      _appbin=true
 #      _appargs=""
-#    To get stats from rank 0 set CUDIAGS to 1
-#      export CUDIAGS=1
+#    To get stats from rank 0 set GPURUN_VERBOSE to 1
+#      export GPURUN_VERBOSE=1
 #    For large numbers of ranks, increase slots with a hosfile.
-#      _hos_tfile="/tmp/hos_tfile$$"
-#      echo "`hostname` slots=64" >$_hos_tfile
+#      _host_file="/tmp/host_file$$"
+#      echo "`hostname` slots=64" >$_host_file
 #
 #  Usage Examples:
-#    mpirun -np  4 $_cu_wedge $_appbin $_appargs
-#    mpirun -np  8 $_cu_wedge $_appbin $_appargs
-#    mpirun -np  9 $_cu_wedge $_appbin $_appargs
-#    mpirun -np 23 $_cu_wedge $_appbin $_appargs
-#    mpirun -np 64 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
-#    mpirun -np 60 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
-#    mpirun -np 55 -hos_tfile $_hos_tfile $_cu_wedge $_appbin $_appargs
+#    gpurun $_appbin $_appargs
+#    mpirun -np  4 gpurun $_appbin $_appargs
+#    mpirun -np  8 gpurun $_appbin $_appargs
+#    mpirun -np  9 gpurun $_appbin $_appargs
+#    mpirun -np 23 gpurun $_appbin $_appargs
+#    mpirun -np 64 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 60 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
 #
-#  Written by Greg Rodgers 
-#  Copyright (c) 2021 ADVANCED MICRO DEVICES, INC.
-#  Updated on 3/11 by Greg Rodgers to work with multiple devices,
-#    allow any and set OMPX_TARGET_TEAM_SLOTS
 #  Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
 #
-#  README:
-#    An rplace is a set of CUs for a rank. This script calculates the number of
-#    rplaces needed to contain the specified number of ranks. The number of CUs
-#    in an rplace is determined by dividing the number of CUs per GPU by the
-#    number of rplaces per GPU. The number of CUs in an rplace is the number
-#    of physical locations for an OpenMP team to execute. This script exports
-#    that number to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
-#    could be used to adjust the number of desired teams in a target region.
-#
-
 PROGVERSION=X.Y-Z
 function version(){
    echo $0 version $PROGVERSION
@@ -170,7 +174,7 @@ done
 _CUs_per_rplace=$(( $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU ))
 
 # Diagnostics:
-if [ $_local_rank_num == 0 ] && [ "$CUDIAGS" != "" ]; then
+if [ $_local_rank_num == 0 ] && [ "$GPURUN_VERBOSE" != "" ]; then
    _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
    _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_available_devices ))
    _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
@@ -255,14 +259,16 @@ rm $_tfile
 export ROCM_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
-   # No HSA_CU_MASK when using all CUs
-   printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
+   # Do not set HSA_CU_MASK when using all CUs
+   [ "$GPURUN_VERBOSE" != 0 ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
    ROCM_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
 else
    # Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
-   printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
-      $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
+   [ "$GPURUN_VERBOSE" != 0 ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
    ROCM_VISIBLE_DEVICES=$_device_num \
    OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
    HSA_CU_MASK=0:$_mask \
