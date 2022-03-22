@@ -4,7 +4,7 @@
 #          GPU applications.  This script launches the application with the
 #          Linux 'taskset' utility to limit the application process to only
 #          CPUs in the same NUMA domain as the specified GPU.  
-#          This script sets environment variable ROCM_VISIBLE_DEVICES to
+#          This script sets environment variable ROCR_VISIBLE_DEVICES to
 #          specify the selected GPU. It also sets OMPX_TARGET_TEAM_SLOTS
 #          to the number of CUs available to the process.  Lastly, if
 #          necessary, it sets HSA_CU_MASK to the subset of CUs for the
@@ -39,7 +39,7 @@
 #  - Works with AOMP 15.0-0 or ROCM 5.0 or greater
 #
 #  TODO:
-#  - Use existing setting of ROCM_VISIBLE_DEVICES to avoid those GPUs.
+#  - Use existing setting of ROCR_VISIBLE_DEVICES to avoid those GPUs.
 #
 #  Example Setup:
 #    Use a dummy application with no args
@@ -93,6 +93,7 @@ if [ ! -d $AOMP ] ; then
    exit 1
 fi
 ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
+[ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../bin/rocminfo
 if [ ! -f $ROCMINFO_BINARY ] ; then
    echo "ERROR: Could not find binary $ROCMINFO_BINARY"
    echo "       Please correct the installation of ROCM or AOMP"
@@ -256,20 +257,20 @@ done < $_tfile
 rm $_tfile
 
 [ "$*" == "" ] && _taskset_cmd=""
-export ROCM_VISIBLE_DEVICES=$_device_num
+export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
    [ "$GPURUN_VERBOSE" != 0 ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
-   ROCM_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
+   ROCR_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
 else
-   # Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
+   # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
    [ "$GPURUN_VERBOSE" != 0 ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
-   ROCM_VISIBLE_DEVICES=$_device_num \
+   ROCR_VISIBLE_DEVICES=$_device_num \
    OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
