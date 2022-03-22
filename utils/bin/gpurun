@@ -1,0 +1,277 @@
+#!/bin/bash
+#
+#  gpurun: Wrapper script to execute a GPU application including OpenMPI
+#          GPU applications.  This script launches the application with the
+#          Linux 'taskset' utility to limit the application process to only
+#          CPUs in the same NUMA domain as the specified GPU.  
+#          This script sets environment variable ROCM_VISIBLE_DEVICES to
+#          specify the selected GPU. It also sets OMPX_TARGET_TEAM_SLOTS
+#          to the number of CUs available to the process.  Lastly, if
+#          necessary, it sets HSA_CU_MASK to the subset of CUs for the
+#          specified OpenMPI rank when more than one OpenMPI rank will
+#          utilize the same GPU.
+#
+#  openmpi_set_cu_mask: Depracated name for gpurun utility because gpurun
+#                       works for any gpu application.
+#  README:
+#    This script demonstrates how to distribute GPUs and their CUs
+#    across multiple ranks of an MPI job into mutually exclusive sets
+#    of CUs. When used with mpirun, this script reads OpenMPI
+#    environment variables OMPI_COMM_WORLD_LOCAL_SIZE and 
+#    OMPI_COMM_WORLD_LOCAL_RANK.
+#
+#    An rplace is a set of CUs for a rank. This script first calculates the
+#    number of rplaces needed to contain the specified number of ranks. 
+#    There will be more rplaces than ranks if number of ranks not divisible
+#    by number of GPUs. Then The number of CUs in an rplace is calculated
+#    by dividing the number of CUs per GPU by the number of rplaces per GPU.
+#    The number of CUs in an rplace is the number of physical locations
+#    available for an OpenMP team to execute. This script exports that number
+#    to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
+#    could be used by the application or runtume to adjust the number
+#    of desired teams in a target region.
+#
+#  Limitations:
+#  - This script assigns no more than one GPU to the application process.
+#  - Only creates masks that are mutually exclusive of each other. That is,
+#    the MPI processes will not share CUs. If number of ranks not perfectly
+#    divisible by number of CUs or number of GPUs, some resources may be wasted.
+#  - Works with AOMP 15.0-0 or ROCM 5.0 or greater
+#
+#  TODO:
+#  - Use existing setting of ROCM_VISIBLE_DEVICES to avoid those GPUs.
+#
+#  Example Setup:
+#    Use a dummy application with no args
+#      _appbin=true
+#      _appargs=""
+#    To get stats from rank 0 set GPURUN_VERBOSE to 1
+#      export GPURUN_VERBOSE=1
+#    For large numbers of ranks, increase slots with a hosfile.
+#      _host_file="/tmp/host_file$$"
+#      echo "`hostname` slots=64" >$_host_file
+#
+#  Usage Examples:
+#    gpurun $_appbin $_appargs
+#    mpirun -np  4 gpurun $_appbin $_appargs
+#    mpirun -np  8 gpurun $_appbin $_appargs
+#    mpirun -np  9 gpurun $_appbin $_appargs
+#    mpirun -np 23 gpurun $_appbin $_appargs
+#    mpirun -np 64 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 60 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
+#
+#  Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
+#
+PROGVERSION=X.Y-Z
+function version(){
+   echo $0 version $PROGVERSION
+   exit 0
+}
+[ "$1" == "--version" ] && version
+
+#  Get environment variables set by OpenMPI
+_num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
+_local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
+# If not started from openmpi mpirun, assume this is wrapper for single process on single GPU
+if [ -z "$_num_local_ranks" ] ; then
+   _num_local_ranks=1
+   _local_rank_num=0
+fi
+
+# Find location of the rocminfo binary
+AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
+if [ ! -d $AOMP ] ; then
+   AOMP="_AOMP_INSTALL_DIR_"
+fi
+if [ ! -d $AOMP ] ; then
+   AOMP="/opt/rocm"
+fi
+if [ ! -d $AOMP ] ; then
+   echo "ERROR: AOMP not found at $AOMP"
+   echo "       Please install AOMP or correctly set env-var AOMP"
+   exit 1
+fi
+ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
+if [ ! -f $ROCMINFO_BINARY ] ; then
+   echo "ERROR: Could not find binary $ROCMINFO_BINARY"
+   echo "       Please correct the installation of ROCM or AOMP"
+   exit 1
+fi
+
+# Find number of GPUs and number of CUs per GPU
+_available_CUs_per_device=0
+_available_devices=0
+_bdfids=()
+_tfile="/tmp/rinfo_out$$"
+$ROCMINFO_BINARY | grep -E "Compute Unit:| Device Type:|BDFID:" >$_tfile
+while read _linepair ; do
+  last_cu_count=`echo $_linepair | cut -d":" -f2`
+  _fieldtype=`echo $_linepair | cut -d":" -f1`
+  if [ $last_cu_count == "CPU" ] ; then 
+     _last_device_type_was_gpu=0
+  elif [ $last_cu_count == "GPU" ] ; then 
+     _last_device_type_was_gpu=1
+  else
+     if [[ $_last_device_type_was_gpu == 1 ]] ; then
+        if [ "$_fieldtype" == "BDFID" ] ; then
+	   bdfids+=( $last_cu_count )
+        else
+           _available_devices=$(( $_available_devices + 1 ))
+	   if [[ $_available_CUs_per_device == 0 ]] ; then
+              _available_CUs_per_device=$last_cu_count
+	   else
+              if [[ $_available_CUs_per_device != $last_cu_count ]] ; then
+                 echo "ERROR: Defective node! The cu_count for each GPU must be identical"
+	         echo "       Last CU count : $last_cu_count"
+	         echo "       Previous CU count : $_available_CUs_per_device"
+	         echo "       Number of GPUs : $_available_devices"
+	         exit 1
+              fi
+           fi
+        fi
+     fi
+  fi
+done < $_tfile
+rm $_tfile
+
+if [[ $_available_devices -lt 1  ]] ; then
+   echo "ERROR: Local rank $_local_rank_num found no GPUS available"
+   echo "       available_devices=$_available_devices"
+   exit 1
+fi
+
+_node_cus=$(( $_available_devices * $_available_CUs_per_device ))
+if [ $_num_local_ranks -gt $_node_cus ] ; then
+   echo "ERROR: Not enough node CUs ($_node_cus) for $_num_local_ranks ranks "
+   exit 1
+fi
+
+if [ $_available_devices -gt  $_num_local_ranks ] ; then
+   _utilized_devices=$_num_local_ranks
+else
+   _utilized_devices=$_available_devices
+fi
+
+# Calculate number of GPUs to use to evenly spread ranks across GPUs.
+# An rplace is a set of CUs that will be used for a rank.
+# The number of rplaces must be at least the number of ranks.
+_uncovered_ranks=$(( $_num_local_ranks % $_utilized_devices ))
+_number_of_rplaces_per_GPU=$(( $_num_local_ranks / $_utilized_devices ))
+if [ $_uncovered_ranks != 0 ] ; then
+   # If _num_local_ranks not divisible by number of GPUs,
+   # then add an extra rplace per GPU to make room for remainder.
+   _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
+fi
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+_utilized_CUs_per_device=$_available_CUs_per_device
+_rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
+# Lower utilized CUs till divisible by number of rplaces per GPU
+while [ $_rem2 != 0 ] ; do
+   _utilized_CUs_per_device=$(( $_utilized_CUs_per_device - 1 ))
+   _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
+done
+_CUs_per_rplace=$(( $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU ))
+
+# Diagnostics:
+if [ $_local_rank_num == 0 ] && [ "$GPURUN_VERBOSE" != "" ]; then
+   _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
+   _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_available_devices ))
+   _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
+   _wasted_GPUs=$(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU ))
+   _used_cus=$(( $_num_local_ranks * $_CUs_per_rplace ))
+   _utilization=$(( ( $_used_cus * 100 ) / $_node_cus ))
+   if ! [ $_available_devices -gt $_num_local_ranks ] ; then
+      if [ $_wasted_CUs_on_each_GPU != 0 ] || [ $_total_wasted_rplaces != 0 ] ; then
+         _extra_diags=true
+      fi
+   fi
+   echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
+   echo "-  OPENMPI RANKS:     $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
+   [ $_extra_diags ] && echo
+   echo "-  AVAILALBLE GPUS:   $_available_devices"
+   [ $_extra_diags ] && \
+   echo "-- USED GPUS:         $(( $_available_devices - $_wasted_GPUs ))"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED GPUS:       $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
+   [ $_extra_diags ] && echo
+   echo "-  RPLACEs PER NODE:  $_total_GPU_rplaces"
+   echo "-  RPLACEs PER GPU:   $_number_of_rplaces_per_GPU"
+   [ $_extra_diags ] && \
+   echo "-- USED RPLACEs:      $_num_local_ranks (RANKS)"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED RPLACEs:    $_total_wasted_rplaces" ; \
+   # echo "-  LAST GPU UNUSED RPLACES:  $(( $_total_wasted_rplaces % $_number_of_rplaces_per_GPU )) "
+   [ $_extra_diags ] && echo
+   echo "-  CUs PER GPU:       $_available_CUs_per_device"
+   [ $_extra_diags ] && \
+   echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
+   [ $_extra_diags ] && \
+   echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
+   echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_SLOTS)"
+   echo "-  FORMULA: OMPX_TARGET_TEAM_SLOTS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
+   echo "-  NODE UTILIZATION:  $_utilization %"
+fi
+
+if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
+   #  Build the CU mask for this rank, bits_to_set = _CUs_per_rplace
+   _bits_to_set=$_CUs_per_rplace
+   #  This formula keeps adjacent ranks on same GPU which should be preferred
+   _bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_utilized_CUs_per_device) ))
+   # use bc because these values can be very large
+   _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
+   _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
+   # Calculate the number of leading zeros needed for this mask
+   _lz=$(( ( $_utilized_CUs_per_device / 4 ) - ${#_mask} + 1 ))
+   for i in `seq 1 $_lz` ; do
+      _mask="0$_mask"
+   done
+   _mask="0x$_mask"
+fi
+
+# Get NUMANODE and cpuset for this GPU identified by BDFID
+_bdfid=${bdfids[$_device_num]}
+_bdfidstr=`echo "obase=16; $_bdfid" | bc | tr '[:upper:]' '[:lower:]'`
+if [ ${#_bdfidstr} == 3 ] ; then
+   _bdfidstrc="0${_bdfidstr:0:1}:${_bdfidstr:1:2}"
+else
+   _bdfidstrc="${_bdfidstr:0:2}:${_bdfidstr:2:2}"
+fi
+#NUMANODE=`lspci -vmm -s $_bdfidstrc | grep -m 1 NUMANode | cut -d":" -f2`
+NUMANODE=`cat /sys/bus/pci/devices/0000:$_bdfidstrc.0/numa_node`
+_taskset_cmd="taskset -c "
+lscpu --extended=cpu,node >$_tfile
+while read _linepair ; do
+  _nn=`echo $_linepair | awk '{print $2}'`
+  if [ $_nn == $NUMANODE ]; then
+    _cpu=`echo $_linepair | awk '{print $1}'`
+    if [ $_notfirstitem ] ; then
+       _taskset_cmd+=",$_cpu"
+    else
+       _taskset_cmd+="$_cpu"
+       _notfirstitem=1
+    fi
+  fi
+done < $_tfile
+rm $_tfile
+
+[ "$*" == "" ] && _taskset_cmd=""
+export ROCM_VISIBLE_DEVICES=$_device_num
+export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
+if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
+   # Do not set HSA_CU_MASK when using all CUs
+   [ "$GPURUN_VERBOSE" != 0 ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
+   ROCM_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
+else
+   # Since ROCM_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
+   export HSA_CU_MASK=0:$_mask
+   [ "$GPURUN_VERBOSE" != 0 ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
+   ROCM_VISIBLE_DEVICES=$_device_num \
+   OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
+   HSA_CU_MASK=0:$_mask \
+   $_taskset_cmd $*
+fi
+exit $?

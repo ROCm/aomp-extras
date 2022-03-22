@@ -47,6 +47,8 @@ PROGVERSION="X.Y-Z"
 # Software License Agreement.
 # 
 
+# FIXME: Remove this after backend makes this default
+TEMP_FIX_ARGS=""
 function usage(){
 /bin/cat 2>&1 <<"EOF" 
 
@@ -116,13 +118,25 @@ function version(){
 }
 
 function runcmd(){
-   THISCMD=$1
+   if [ $# -eq 3 ]; then
+      THISCMD="$1 \"$2\" \"$3\""
+      outfile="$2"
+      infile="$3"
+   else
+      THISCMD="$1"
+   fi
    if [ $DRYRUN ] ; then
       echo "$THISCMD"
    else 
       [ $VERBOSE ] && echo "$THISCMD"
-      $THISCMD
-      rc=$?
+      if [ $# -eq 3 ]; then
+         # Quotes are necessary to safeguard against file paths with spaces.
+         $1 "$outfile" "$infile"
+         rc=$?
+      else
+         $THISCMD
+         rc=$?
+      fi
       if [ $rc != 0 ] ; then 
          echo "ERROR:  The following command failed with return code $rc."
          echo "        $THISCMD"
@@ -156,7 +170,7 @@ INCLUDES=""
 PASSTHRUARGS=""
 INPUTFILES=""
 #  Argument processing
-while [ $# -gt 0 ] ; do 
+while [ $# -gt 0 ] ; do
    case "$1" in 
       -q)               QUIET=true;;
       --quiet)          QUIET=true;;
@@ -174,6 +188,7 @@ while [ $# -gt 0 ] ; do
       -O0) 		LLVMOPT=0 ;; 
       -o) 		OUTFILE=$2; shift ;; 
       -t)		TMPDIR=$2; shift ;; 
+      --offload-arch=*) AOMP_GPU=`echo $1 | sed "s/--offload-arch=//g"`;;
       --offload-arch)   AOMP_GPU=$2; shift ;;
       -aomp)            AOMP=$2; shift ;;
       -triple)          TARGET_TRIPLE=$2; shift ;;
@@ -191,14 +206,21 @@ while [ $# -gt 0 ] ; do
 	if [ $dash == "-" ] ; then
 	   PASSTHRUARGS+=" $1"
         else
-	   INPUTFILES+=" $1"
+	   if [ "$INPUTFILES" == "" ]; then
+	      INPUTFILES+="$1"
+	   else
+	      INPUTFILES+=",$1"
+	   fi
         fi
    esac
    shift
 done
 
 fcount=0
-for __input_file in `echo $INPUTFILES` ; do
+
+# INPUTFILES is comma separated, temporarily set IFS to comma.
+IFS=,
+for __input_file in $INPUTFILES ; do
    fcount=$(( fcount + 1 ))
    if [ $fcount == 1 ] ; then
       FIRST_INPUT_FILE_NAME=$__input_file
@@ -208,6 +230,7 @@ for __input_file in `echo $INPUTFILES` ; do
       exit $DEADRC
    fi
 done
+IFS=" "
 if [ -z "$FIRST_INPUT_FILE_NAME" ]  ; then
    echo "ERROR:  No File specified."
    exit $DEADRC
@@ -219,9 +242,6 @@ HOW_CALLED=${0##*/}
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
-   AOMP="/tmp/grodgers/rocm/aomp_11.5-0"
-fi
-if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
    echo "       Please install AOMP or set environment variable AOMP"
    exit 1
@@ -229,12 +249,13 @@ fi
 
 TARGET_TRIPLE=${TARGET_TRIPLE:-amdgcn-amd-amdhsa}
 
-# Determine which gfx processor to use, default to Vega (gfx900)
+# Determine which gfx processor to use.
 if [ ! $AOMP_GPU ] ; then 
-   # Use the mygpu in pair with this script, no the pre-installed one.
-   AOMP_GPU=`$cdir/mygpu -d gfx900`
-   if [ "$AOMP_GPU" == "" ] ; then 
-      AOMP_GPU="gfx900"
+   # Use the mygpu in pair with this script, not the pre-installed one.
+   AOMP_GPU=`$cdir/mygpu`
+   if [ "$AOMP_GPU" == "" ] || [ "$AOMP_GPU" == "unknown" ] ; then
+      echo "Valid GPU not detected. Please specify --offload-arch or set AOMP_GPU."
+      exit 1
    fi
 fi
 
@@ -248,7 +269,7 @@ RUNDATE=`date`
 
 # Parse FIRST_INPUT_FILE_NAME for filetype, directory, and filename
 INPUT_FTYPE=${FIRST_INPUT_FILE_NAME##*\.}
-INDIR=$(getdname $FIRST_INPUT_FILE_NAME)
+INDIR=$(getdname "$FIRST_INPUT_FILE_NAME")
 FILENAME=${FIRST_INPUT_FILE_NAME##*/}
 # FNAME has the filetype extension removed, used for naming intermediate filenames
 FNAME=${FILENAME%.*}
@@ -263,7 +284,7 @@ if [ -z $OUTFILE ] ; then
    fi
 else 
 #  Use the specified OUTFILE
-   OUTDIR=$(getdname $OUTFILE)
+   OUTDIR=$(getdname "$OUTFILE")
    OUTFILE=${OUTFILE##*/}
 fi 
 
@@ -273,7 +294,7 @@ ROCC_DIR=$sdir
 
 TMPNAME="aompcc-tmp-$$"
 TMPDIR=${TMPDIR:-/tmp/$TMPNAME}
-if [ -d $TMPDIR ] ; then 
+if [ -d "$TMPDIR" ] ; then
    KEEPTDIR=true
 else 
    if [ $DRYRUN ] ; then
@@ -285,14 +306,14 @@ else
 fi
 
 # Be sure not to delete the output directory
-if [ $TMPDIR == $OUTDIR ] ; then 
+if [ "$TMPDIR" == "$OUTDIR" ] ; then
    KEEPTDIR=true
 fi
-if [ ! -d $TMPDIR ] && [ ! $DRYRUN ] ; then 
+if [ ! -d "$TMPDIR" ] && [ ! $DRYRUN ] ; then
    echo "ERROR:  Directory $TMPDIR does not exist or could not be created"
    exit $DEADRC
 fi 
-if [ ! -d $OUTDIR ] && [ ! $DRYRUN ]  ; then 
+if [ ! -d "$OUTDIR" ] && [ ! $DRYRUN ]  ; then
    echo "ERROR:  The output directory $OUTDIR does not exist"
    exit $DEADRC
 fi 
@@ -305,11 +326,11 @@ if [ $VERBOSE ] ; then
    echo "#Info:  Run date:	$RUNDATE"
    echo "#Info:  Input files:	$INPUTFILES"
    echo "#Info:  Code object:	$OUTDIR/$OUTFILE"
-   [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR" 
+   [ $KEEPTDIR ] &&  echo "#Info:  Temp dir:	$TMPDIR"
    echo "#   "
 fi 
 
-UNAMEP=`uname -p`
+UNAMEP=`uname -m`
 HOST_TARGET="$UNAMEP-pc-linux-gnu"
 if [ "$UNAMEP" == "ppc64le" ] ; then 
   HOST_TARGET="ppc64le-linux-gnu"
@@ -318,14 +339,60 @@ fi
 #  Pick the compiler based on filetype 
 COMPILER_BIN_DIR="$AOMP/bin"
 
-if [ "$INPUT_FTYPE" == "cpp" ]  || [ "$INPUT_FTYPE" == "cxx" ] ; then
+if [ -d $AOMP/clang/15.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/15.0.0/include
+if [ -d $AOMP/clang/14.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/14.0.0/include
+if [ -d $AOMP/clang/13.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/13.0.0/include
+elif [ -d $AOMP/clang/12.0.0/include ] ; then
+   CLANG_INCLUDE_DIR=$AOMP/clang/12.0.0/include
+else
+   CLANG_INCLUDE_DIR=$AOMP/clang/11.0.0/include
+fi
+
+if [ "$HOW_CALLED" == "hipcc" ] || [ "$INPUT_FTYPE" == "hip" ] ; then
+   CLANG_CMD="clang++"
+   AOMP_GPU_UCASE=${AOMP_GPU^^}
+   CLANG_ARGS="-O$LLVMOPT  \
+-lamdhip64 -fopenmp \
+-std=c++11 -I$CLANG_INCLUDE_DIR \
+-I$AOMP/hsa/include \
+-D__HIP_VDI__ \
+-fhip-new-launch-api \
+-I$AOMP/include  \
+-D__HIP_ARCH_${AOMP_GPU_UCASE}__=1 \
+--cuda-gpu-arch=$AOMP_GPU "
+   #  treat rest of c and cpp files as hip
+   HOW_CALLED="hipcc"
+elif [ "$INPUT_FTYPE" == "cu" ] ; then
+   echo "WARNING: CUDA WITH NVCC IN aompcc IS UNTESTED "
+   if [ ! -d $CUDA_PATH ] ; then 
+      echo "WARNING:  No CUDA_PATH directory at $CUDA_PATH "
+      exit $DEADRC 
+   fi
+   CLANG_CMD="nvcc"
+   INCLUDES="-I $CUDA_PATH/include ${INCLUDES}"
+   CLANG_ARGS="$CLANG_ARGS $INCLUDES"
+   COMPILER_BIN_DIR="$CUDA_PATH/bin"
+
+elif [ "$INPUT_FTYPE" == "cl" ] ; then 
+   echo "WARNING: OPENCL IN aompcc IS UNTESTED "
+   CLANG_CMD="clang-ocl"
+   if [ $CL12 ] ; then
+      CLANG_ARGS="$CLANG_ARGS -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__$AOMP_GPU__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -target-feature -Xclang -code-object-v3 -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $AOMP/lib/clang/9.0.1/include/opencl-c.h $CLOPTS $LINKOPTS"
+   else
+      CLANG_ARGS="$CLANG_ARGS -x cl -Xclang -cl-std=CL2.0 -Xclang -code-object-v3 $CLOPTS $LINKOPTS $INCLUDES -include $AOMP/lib/clang/9.0.1/include/opencl-c.h -Dcl_clang_storage_class_specifiers -Dcl_khr_fp64 -target ${TARGET_TRIPLE}"
+   fi
+
+elif [ "$INPUT_FTYPE" == "cpp" ]  || [ "$INPUT_FTYPE" == "cxx" ] ; then
    # OpenMP c++
-   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU $TEMP_FIX_ARGS"
    CLANG_CMD="clang++"
 
 elif [ "$INPUT_FTYPE" == "c" ] ; then 
    # OpenMP c
-   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU"
+   CLANG_ARGS="$CLANG_ARGS -O$LLVMOPT -target $HOST_TARGET -fopenmp -fopenmp-targets=$TARGET_TRIPLE -Xopenmp-target=$TARGET_TRIPLE -march=$AOMP_GPU $TEMP_FIX_ARGS"
    CLANG_CMD="clang"
 
 elif [ "$INPUT_FTYPE" == "f" ] ; then 
@@ -348,12 +415,28 @@ if [ $GEN_OBJECT_ONLY ]  ; then
 fi
 
 __INPUTS=""
-for __input_file in `echo $INPUTFILES` ; do
+IFS=,
+for __input_file in $INPUTFILES; do
+  _ftype=${__input_file##*\.}
+  if [ "$_ftype" == "hip" ] ; then
+     CLANG_ARGS+=" -x hip"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "cpp" ] ; then
+     CLANG_ARGS+=" -x hip"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "hpp" ] ; then
+     CLANG_ARGS+=" -x hip"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "c" ] ; then
+     CLANG_ARGS+=" -x hip"
+  elif [ "$HOW_CALLED" == "hipcc" ] && [ "$_ftype" == "h" ] ; then
+     CLANG_ARGS+=" -x hip"
+  fi
   __INPUTS+=" $__input_file"
 done
+IFS=" "
 
-rc=0
-runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS $PASSTHRUARGS $__INPUTS -o $OUTDIR/$OUTFILE"
+# Remove space at beginning of __INPUTS string if it exists.
+__ADJUSTEDINPUTS=$(echo $__INPUTS | sed "s/^[[:space:]]//")
+
+runcmd "$COMPILER_BIN_DIR/$CLANG_CMD $CLANG_ARGS $PASSTHRUARGS -o " "$OUTDIR/$OUTFILE" "$__ADJUSTEDINPUTS"
 
 # cleanup
 do_err 0
