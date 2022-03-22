@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# NOTE: mymcpu and mygpu are being deprecated for offload-arch
+
 # mymcpu:  Print the mcpu value for the current machine
 # mygpu:   Print a gpu value acceptable as gpu-arch for cuda clang
 #
@@ -49,26 +51,8 @@ PROGVERSION=X.Y-Z
 function usage(){
 /bin/cat 2>&1 <<"EOF"
 
-   mymcpu: Print out a codename for the gpu of the current system
-           or for the gpu specified with -getcodename option.
-
-   mygpu:  Print out the real gpu name for the current system
-           or for the codename specified with -getgpuname option.
-           mygpu will only print values accepted by cuda clang in
-           the clang argument --cuda-gpu-arch
-
-   Usage: mygpu <options>
-
-   Options without values:
-    -h        Print this help message
-    -d        If GPU is unknown, set to this default device
-    -version  Print the version of mymcpu and mygpu
-
-   Options with values:
-    -getgpuname   <codename>  Convert <codename> to gpu name.
-    -getcodename  <gpuname>   Convert <gpuname> to a code name
-
-   Copyright (c) 2018 ADVANCED MICRO DEVICES, INC.
+   WARNING: mymcpu and mygpu are being deprecated.
+   Please use offload-arch instead.
 
 EOF
    exit 1
@@ -99,165 +83,6 @@ function getdname(){
    echo $__DIRN
 }
 
-function code2gpu(){
-   case "$1" in
-      "tahiti")  gpuname="gfx600"
-      ;;
-      "gfx600")  gpuname="gfx600"
-      ;;
-      "oland")  gpuname="gfx601"
-      ;;
-      "gfx601")  gpuname="gfx601"
-      ;;
-      "gfx700")  gpuname="gfx700"
-      ;;
-      "kaveri")  gpuname="gfx700"
-      ;;
-      "gfx701")  gpuname="gfx701"
-      ;;
-      "hawaii")  gpuname="gfx701"
-      ;;
-      "gfx703")  gpuname="gfx703"
-      ;;
-      "kabini")  gpuname="gfx703"
-      ;;
-      "gfx801")  gpuname="gfx801"
-      ;;
-      "carrizo") gpuname="gfx801"
-      ;;
-      "gfx802")  gpuname="gfx802"
-      ;;
-      "tonga")   gpuname="gfx802"
-      ;;
-      "gfx803")  gpuname="gfx803"
-      ;;
-      "fiji")    gpuname="gfx803"
-      ;;
-      "ellesmere") gpuname="gfx803"
-      ;;
-      "vega")    gpuname="gfx900"
-      ;;
-      "RavenRidge")  gpuname="gfx902"
-      ;;
-      "vega20")   gpuname="gfx906"
-      ;;
-      "MI100")   gpuname="gfx908"
-      ;;
-      "NDPXY")   gpuname="gfx90a"
-      ;;
-      "navi10")   gpuname="gfx1010"
-      ;;
-      "navi21")   gpuname="gfx1030"
-      ;;
-      "navi22")   gpuname="gfx1031"
-      ;;
-      "sm_30")   gpuname="sm_30"
-      ;;
-      "k4000")   gpuname="sm_30"
-      ;;
-      "k4200")   gpuname="sm_30"
-      ;;
-      "gtx750")   gpuname="sm_50"
-      ;;
-      "gtx960m")   gpuname="sm_50"
-      ;;
-      "gtx980")   gpuname="sm_35"
-      ;;
-      "gtx1050")   gpuname="sm_61"
-      ;;
-      "gtx1060")   gpuname="sm_61"
-      ;;
-      "gtx1080")   gpuname="sm_61"
-      ;;
-      "gt730")   gpuname="sm_35"
-      ;;
-      "p100")   gpuname="sm_60"
-      ;;
-      "gv100")   gpuname="sm_70"
-      ;;
-      "v100")   gpuname="sm_70"
-      ;;
-      "")  gpuname="sm_35"
-      ;;
-      *) gpuname=$unknown_value
-      ;;
-   esac
-   echo $gpuname
-}
-
-# This routine can echo the gpu name as the codename.
-# HELP! TODO: Lots more options to add for both amd and nvidia
-function gpu2code(){
-   case "$1" in
-      "gfx600") codename="tahiti"
-      ;;
-      "gfx601") codename="oland"
-      ;;
-      "gfx700") codename="kaveri"
-      ;;
-      "gfx701") codename="hawaii"
-      ;;
-      "gfx703") codename="kabini"
-      ;;
-      "gfx801") codename="carrizo"
-      ;;
-      "gfx802") codename="tonga"
-      ;;
-      "gfx803") codename="fiji"
-      ;;
-      "gfx900") codename="vega"
-      ;;
-      "gfx906") codename="vega20"
-      ;;
-      "gfx908") codename="MI100"
-      ;;
-      "gfx90a") codename="NDPXY"
-      ;;
-      "gfx1010") codename="navi10"
-      ;;
-      "gfx1030") codename="navi21"
-      ;;
-      "gfx1031") codename="navi22"
-      ;;
-# sm_ numbers do not map to specific gpus so just return the sm number
-      *) codename="$1"
-      ;;
-   esac
-   echo $codename
-}
-
-function getmycodename()
-{
-thisdir=$(getdname $0)
-if [ -L "$thisdir/mymcpu" ] ; then
-   linkfile=`readlink "$thisdir/mymcpu"`
-   if [ "${linkfile%%/*}" == ".." ] ; then
-      linkfile=$thisdir/$linkfile
-   fi
-   thisdir=$(getdname $linkfile)
-fi
-GPUTABLE_FILE=${GPUTABLE_FILE:-$thisdir/gputable.txt}
-local _found=0
-if [ -f $GPUTABLE_FILE ] ; then
-   for sysfsname in `find -L /sys/bus/pci/devices -maxdepth 2 -name uevent | xargs grep -l -E 'DRIVER=amdgpu|DRIVER=nvidia'` ; do
-      gpuid=`cat $sysfsname | grep 'PCI_ID=' | cut -d"=" -f2 | tr '[:upper:]' '[:lower:]'`
-      if [ $_found == 0  ] ; then
-         entry=`grep -m1 "^$gpuid" $GPUTABLE_FILE`
-         if [ $? == 0 ] ; then
-            codename=`echo $entry | awk '{print $4}'`
-            _found=1
-         fi
-      fi
-   done
-fi
-if [ $_found == 1  ] ; then
-   echo $codename
-else
-   echo "unknown"
-fi
-}
-
-#  ===========  Main code for mymcpu and mygpu starts here ==========
 TYPERUN=${0##*\/}
 MODE=
 
@@ -265,8 +90,6 @@ unknown_value="unknown"
 #  process args
 while [ $# -gt 0 ] ; do
    case "$1" in
-      -getgpuname)      INPUT_CODENAME=$2; shift ;;
-      -getcodename)     INPUT_GPUNAME=$2; shift ;;
       -n) 	        MODE=num; shift ;;
       -h) 	        usage ;;
       -d) 	        unknown_value=$2; shift ;;
@@ -280,25 +103,29 @@ while [ $# -gt 0 ] ; do
    shift
 done
 
-if [ $INPUT_GPUNAME ] && [ $INPUT_CODENAME ] ; then
-   echo "ERROR: Please specify only -convert or -codename option"
-   exit 1
-fi
-
 rc=0
+thisdir=$(getdname $0)
+oa="$thisdir/offload-arch"
+if [ ! -f $oa ] ; then 
+  oa=$AOMP/bin/offload-arch
+fi
+if [ ! -f $oa ] ; then
+  oa=$thisdir/bin/amdgpu-arch
+fi
+if [ ! -f $oa ] ; then
+  oa=$AOMP/bin/amdgpu-arch
+fi
+if [ ! -f $oa ] ; then
+  echo "ErrorMissingTool"
+  exit 1
+fi
 if [ "$TYPERUN" == "mygpu" ] ; then
-   if [ $INPUT_GPUNAME ] ; then
-      # nothing to do stupid
-      gpuname=$INPUT_GPUNAME
-   else
-      if [ $INPUT_CODENAME ] ; then
-         codename=`echo $INPUT_CODENAME | tr '[:upper:]' '[:lower:]'`
-      else
-         codename=$(getmycodename)
-      fi
-      gpuname=$(code2gpu $codename)
+   gpuname=`$oa`
+   if [ "$gpuname" == "" ] ; then 
+      gpuname="$unknown_value"
+      rc=1
    fi
-   [ "$gpuname" == "unknown" ] && rc=1
+   gpuname=`echo $gpuname | cut -d" " -f1`
    if [ -z "$MODE" ]; then
      echo $gpuname
    else
@@ -306,18 +133,12 @@ if [ "$TYPERUN" == "mygpu" ] ; then
    fi
 else
    # This is mymcpu so print the codename
-   if [ $INPUT_CODENAME ] ; then
-      # nothing to do stupid
-      codename=$INPUT_CODENAME
-   else
-      if [ $INPUT_GPUNAME ] ; then
-         gpuname=`echo $INPUT_GPUNAME | tr '[:upper:]' '[:lower:]'`
-         codename=$(gpu2code $gpuname)
-      else
-         codename=$(getmycodename)
-      fi
+   codename=`$oa -m | cut -d" " -f2`
+   if [ "$codename" == "" ] ; then 
+      codename="$unknown_value"
+      rc=1
    fi
-   [ "$codename" == "unknown" ] && rc=1
+   codename=`echo $codename | cut -d" " -f1`
    echo $codename
 fi
 

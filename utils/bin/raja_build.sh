@@ -101,6 +101,14 @@ raja_url=https://github.com/llnl/raja
 mygpu=`$thisdir/mygpu`
 AOMP_GPU=${AOMP_GPU:-$mygpu}
 RAJA_BUILD_PREFIX=${RAJA_BUILD_PREFIX:-$HOME}
+NUM_THREADS=${NUM_THREADS:-8}
+AOMP_CMAKE=${AOMP_CMAKE:-cmake}
+if $AOMP_CMAKE --version > /dev/null 2>&1 ; then
+  $AOMP_CMAKE --version
+else
+  echo Error: cmake not found. Try using AOMP_CMAKE env variable.
+  exit 1
+fi
 
 if [ "$1" == "hip" ] ; then
     raja_backend="hip"
@@ -119,8 +127,8 @@ fi
 mkdir -p $aomp_repos
 cd $aomp_repos
 if [ ! -d $raja_source_dir ] ; then 
-  echo git clone --recursive -b main $raja_url
-  git clone --recursive -b main $raja_url
+  echo git clone --recursive -b develop $raja_url
+  git clone --recursive -b develop $raja_url
   if [ $? != 0 ] ; then 
      echo
      echo "ERROR  could not git clone $raja_url "
@@ -131,16 +139,16 @@ fi
 cd $raja_source_dir
 
 # Fix hash to prevent failure to build
-echo git reset --hard 412e621f5923db136782829fd52afaceb0da5433
-git reset --hard 412e621f5923db136782829fd52afaceb0da5433
+echo git reset --hard dec0568e14e72cdc2157582d65e9974060ce71ca
+git reset --hard dec0568e14e72cdc2157582d65e9974060ce71ca
 
 echo "git submodule update"
 git submodule update
 echo "git pull"
 git pull
 
-echo git reset --hard 412e621f5923db136782829fd52afaceb0da5433
-git reset --hard 412e621f5923db136782829fd52afaceb0da5433
+echo git reset --hard dec0568e14e72cdc2157582d65e9974060ce71ca
+git reset --hard dec0568e14e72cdc2157582d65e9974060ce71ca
 
 if ! [ "$1" == "hip" ] ; then
 patchdir=$raja_source_dir
@@ -154,16 +162,16 @@ fi
 mkdir -p $RAJA_BUILD_DIR
 cd $RAJA_BUILD_DIR
 
-UNAMEP=`uname -p`
+UNAMEP=`uname -m`
 AOMP_CPUTARGET="${UNAMEP}-pc-linux-gnu"
 if [ "$UNAMEP" == "ppc64le" ] ; then
    AOMP_CPUTARGET="ppc64le-linux-gnu"
 fi
 
 if [ "$raja_backend" == "hip" ] ; then
-    cmake -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
+    $AOMP_CMAKE -DHIP_ROOT_DIR=$AOMP/hip -C $raja_source_dir/host-configs/hip.cmake $raja_source_dir
 else
-cmake -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
+    $AOMP_CMAKE -DOpenMP_C_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DOpenMP_CXX_FLAGS="-w;--target=${AOMP_CPUTARGET};-fopenmp;-fopenmp-targets=amdgcn-amd-amdhsa;-Xopenmp-target=amdgcn-amd-amdhsa;-march=$AOMP_GPU" \
       -DENABLE_TARGET_OPENMP=On \
       -DENABLE_CUDA=Off \
@@ -187,7 +195,8 @@ echo "CMAKE done in directory $raja_build_dir"
 echo
 echo "Starting build ..."
 
-make -j8
+echo make -j$NUM_THREADS
+make -j$NUM_THREADS
 if [ $? != 0 ] ; then 
    echo "ERROR in Raja build"
    exit 1

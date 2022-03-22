@@ -11,7 +11,7 @@
 #
 ##===----------------------------------------------------------------------===##
 
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   project(aomputils)
 endif()
@@ -23,7 +23,6 @@ find_package(LLVM QUIET CONFIG
   ${LLVM_DIR}
   NO_DEFAULT_PATH
 )
-find_package(ZLIB)
 
 if (LLVM_DIR)
   if("{CMAKE_INSTALL_PREFIX}" STREQUAL "")
@@ -33,7 +32,7 @@ if (LLVM_DIR)
   message(STATUS "AOMP LLVM Found!")
   message(STATUS "     LLVM_PACKAGE_VERSION:     ${LLVM_PACKAGE_VERSION} ")
   message(STATUS "     LLVM_DIR:                 ${LLVM_DIR}")
-  message(STATUS "     LLVM LLVM_INSTALL_PREFIX: ${LLVM_INSTALL_PREFIX}")
+  message(STATUS "     LLVM_INSTALL_PREFIX:      ${LLVM_INSTALL_PREFIX}")
   message(STATUS "     CMAKE_INSTALL_PREFIX:     ${CMAKE_INSTALL_PREFIX}")
   message("")
 else()
@@ -68,10 +67,16 @@ mark_as_advanced(
   AOMP_LIBDIR
   AOMP_MAIN_INCDIR)
 
-# brutal hardcoding
-string(LENGTH ${LLVM_PACKAGE_VERSION} vlen)
-math(EXPR vstart "${vlen}-6")
-string(SUBSTRING ${LLVM_PACKAGE_VERSION} ${vstart} 6 version_str)
+# For AOMP, get the version_str from end of CMAKE_INSTALL_PREFIX
+if(AOMP_VERSION_STRING)
+  set(version_str ${AOMP_VERSION_STRING})
+else()
+  string(LENGTH ${LLVM_INSTALL_PREFIX} liplen)
+  string(LENGTH ${CMAKE_INSTALL_PREFIX} ciplen)
+  math(EXPR vlen "${ciplen} - ${liplen} - 1")
+  math(EXPR vstart "${ciplen} - ${vlen}")
+  string(SUBSTRING ${CMAKE_INSTALL_PREFIX} ${vstart} ${vlen} version_str)
+endif()
 
 set(SED_INSTALL_DIR '$ENV{SED_INSTALL_DIR}')
 
@@ -83,12 +88,26 @@ add_custom_command( OUTPUT cloc.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh > cloc.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh)
 
+add_custom_command( OUTPUT gpurun
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/gpurun ${CMAKE_CURRENT_BINARY_DIR}/gpurun
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/gpurun)
+add_custom_command( OUTPUT gpurun.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/gpurun > gpurun.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/gpurun)
+
 add_custom_command( OUTPUT raja_build.sh
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja_build.sh ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja_build.sh)
 add_custom_command( OUTPUT raja_build.sh.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh > raja_build.sh.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh)
+
+add_custom_command( OUTPUT kokkos_build.sh
+   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/kokkos_build.sh ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/kokkos_build.sh)
+add_custom_command( OUTPUT kokkos_build.sh.phantom
+   COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh > kokkos_build.sh.phantom
+   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh)
 
 add_custom_command( OUTPUT aompcc
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/aompcc ${CMAKE_CURRENT_BINARY_DIR}/aompcc
@@ -125,11 +144,6 @@ add_custom_command( OUTPUT clang-ocl.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl > clang-ocl.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl)
 
-# mymcpu reads the codename by searching for pciid from this generated gputable. 
-add_custom_command( OUTPUT gputable.txt
-   COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/gputable.txt)
-
 add_custom_command( OUTPUT modulefile
    COMMAND /bin/cp -p ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile ${CMAKE_CURRENT_BINARY_DIR}/modulefile
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/bin/modulefile)
@@ -137,37 +151,24 @@ add_custom_command( OUTPUT modulefile.phantom
    COMMAND /bin/sed -i -e "s/X\\.Y\\-Z/${version_str}/g" -e "s/_AOMP_INSTALL_DIR_/${SED_INSTALL_DIR}/g" ${CMAKE_CURRENT_BINARY_DIR}/modulefile > modulefile.phantom
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/modulefile)
 
-add_custom_target(utils_scripts ALL DEPENDS cloc.sh.phantom raja_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom gputable.txt modulefile.phantom aompExtractRegion.phantom)
-
-# We need prepare-builtins in the AOMP distribution to build bc libs for components
-list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
-include(AddLLVM)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fno-rtti")
-add_definitions(${LLVM_DEFINITIONS})
-include_directories(${LLVM_INCLUDE_DIR})
-add_executable(prepare-builtins ${CMAKE_CURRENT_SOURCE_DIR}/src/prepare-builtins.cpp)
-llvm_map_components_to_libnames(llvm_libs support core bitreader bitwriter)
-target_link_libraries(prepare-builtins ${llvm_libs} ZLIB::ZLIB)
-
-add_custom_target(prepare-builtins-bin ALL DEPENDS ${PREPARE_BUILTINS})
+add_custom_target(utils_scripts ALL DEPENDS gpurun.phantom cloc.sh.phantom raja_build.sh.phantom kokkos_build.sh.phantom aompcc.phantom mymcpu.phantom aompversion.phantom clang-ocl.phantom modulefile.phantom aompExtractRegion.phantom)
 
 if(${AOMP_STANDALONE_BUILD})
-  install(PROGRAMS
-    #   ${CMAKE_CURRENT_SOURCE_DIR}/bin/bundle.sh
-    #   ${CMAKE_CURRENT_SOURCE_DIR}/bin/unbundle.sh
+  install(PROGRAMS 
      ${CMAKE_CURRENT_BINARY_DIR}/cloc.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/gpurun
      ${CMAKE_CURRENT_BINARY_DIR}/raja_build.sh
+     ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh
      ${CMAKE_CURRENT_BINARY_DIR}/aompcc
      ${CMAKE_CURRENT_BINARY_DIR}/aompExtractRegion
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
-     ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
      ${CMAKE_CURRENT_BINARY_DIR}/aompversion
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
+     ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
      ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
      ${CMAKE_CURRENT_BINARY_DIR}/modulefile
-     ${CMAKE_CURRENT_BINARY_DIR}/prepare-builtins
    DESTINATION "bin")
 
 else()

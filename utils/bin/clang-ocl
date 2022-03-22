@@ -18,10 +18,6 @@ LLVM_LINK=${OPENCL_ROOT}/bin/llvm-link
 
 TRIPLE=amdgcn-amd-amdhsa-amdgizcl
 
-if [[ "$AMD_DEBUG_AMDGIZ" == 1 ]]; then
-  TRIPLE=amdgcn-amd-amdhsa-amdgizcl
-fi
-
 gfxip=803
  
 while (( "$#" ))
@@ -91,8 +87,8 @@ ${CLANG} \
 -O3 \
 -m64 \
 -cl-kernel-arg-info \
+-nogpulib \
 -mllvm -amdgpu-internalize-symbols -mllvm -amdgpu-early-inline-all \
--Xclang -target-feature -Xclang -code-object-v3 \
 ${options} -o ${output_file} ${output_file}.linked.bc
 
 # Remove extra files
