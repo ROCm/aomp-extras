@@ -175,7 +175,6 @@ else()
   install(PROGRAMS
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
      ${CMAKE_CURRENT_BINARY_DIR}/aompcc
-     ${CMAKE_CURRENT_BINARY_DIR}/gputable.txt
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask
      ${CMAKE_CURRENT_BINARY_DIR}/gpurun
