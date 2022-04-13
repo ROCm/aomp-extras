@@ -98,10 +98,10 @@ function usage(){
 
    Input environment variables automatically set by mpurun
      OMPI_COMM_WORLD_LOCAL_SIZE Number of ranks on this node
-     OMPI_COMM_WORLD_LOCAL_RANK The local rank number (0-nranks-1)
+     OMPI_COMM_WORLD_LOCAL_RANK The local rank number 0-(nranks-1)
 
    Output environment variables:
-     OMPX_GARGET_TEAM_SLOTS - Number of CUs available to process
+     OMPX_TARGET_TEAM_SLOTS - Number of CUs available to process
      ROCR_VISIBLE_DEVICES - The logical device number for selected device
      HSA_CU_MASK - The CU mask for the device.
 
