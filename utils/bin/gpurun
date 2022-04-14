@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#  gpurun: Application process launch utility for GPUs. Wrapper utility to
-#          execute a GPU application including OpenMPI GPU applications.
-#          See help message below for more information.
+#  gpurun: Process launch utility for GPU applications. This is a wrapper
+#          to execute a GPU application including OpenMPI GPU applications.
+#          See help message below (gpurun -h) for more information.
 #
 #  Usage Examples:
 #    _appbin=true
@@ -21,9 +21,13 @@
 #
 #  TODO:
 #  - Use existing setting of ROCR_VISIBLE_DEVICES to avoid those GPUs.
+#    This utility currently ignores any previous setting to
+#    ROCR_VISIBLE_DEVICES and overrides it with a single selected GPU.
 #  - Warn if HSA_CU_MASK is preset and use that instead of calculated MASK.
 #    Note that rocminfo does not recognize ROCR_VISIBLE_DEVICES or HSA_CU_MASK.
 #  - Add support for cuda.
+#  - Add support for other mpi launchers besides openmpi's mpirun.
+#  - If gpurun becomes popular, convert this script to a program
 #
 # Copyright (c) 2022 ADVANCED MICRO DEVICES, INC.
 #
@@ -71,7 +75,7 @@ function usage(){
    gpurun: Application process launch utility for GPUs.
            This utility launches an application binary with the
            Linux 'taskset' utility to limit the application process to
-           limit execution only to CPU cores in the same NUMA domain as
+           execute only on CPU cores in the same NUMA domain as
            the selected GPU to improve efficiency of memory transfers.
            This utility sets environment variable ROCR_VISIBLE_DEVICES to
            specify the selected GPU. It also sets OMPX_TARGET_TEAM_SLOTS
@@ -88,47 +92,49 @@ function usage(){
       -h        Print this help message and exit
       --version Print version of gpurun and exit
 
-   Optional Input environment variables:
-     GPURUN_VERBOSE="" (unset) prints 1 line trace to process stdout, format:
-        RANK:<rank> D:<device-id> PCI:<pci-id>  NN:<numanode> <CU mask if set>
-     GPURUN_VERBOSE=0 for silent operation, no extra line printed to stdout
-     GPURUN_VERBOSE=1 prints trace and other diagnostics to stdout
-     ROCMINFO_BINARY  Set location of rocminfo binary
-     AOMP location of AOMP or ROCM
+   Generated (output) Environment Variables:
+      OMPX_TARGET_TEAM_SLOTS - Number of CUs available to process
+      ROCR_VISIBLE_DEVICES - The logical device number for selected device
+      HSA_CU_MASK - The CU mask for the device.
 
-   Input environment variables automatically set by mpurun
-     OMPI_COMM_WORLD_LOCAL_SIZE Number of ranks on this node
-     OMPI_COMM_WORLD_LOCAL_RANK The local rank number 0-(nranks-1)
+   Optional input environment variables:
+      GPURUN_VERBOSE=
+        "" (or unset) print 1 line trace to stdout, format:
+           RANK:<rank> D:<dev-id> PCI:<pci-id> NN:<numanode> <CU mask if set>
+        0:  for silent operation, nothing is added to stdout
+        1:  prints trace and other diagnostics to stdout
+        2:  prints trace, other diagnostics, and taskset command
+      ROCMINFO_BINARY  Set location of rocminfo binary
+      AOMP location of AOMP or ROCM
 
-   Output environment variables:
-     OMPX_TARGET_TEAM_SLOTS - Number of CUs available to process
-     ROCR_VISIBLE_DEVICES - The logical device number for selected device
-     HSA_CU_MASK - The CU mask for the device.
+   Input environment variables set by OpenMP mpirun
+      OMPI_COMM_WORLD_LOCAL_SIZE Number of ranks on this node
+      OMPI_COMM_WORLD_LOCAL_RANK The local rank number 0-(nranks-1)
 
    Limitations:
    - This utility assigns no more than one GPU to the application process.
-     The OpenMP API omp_get_num_devices() will always return 1.
+     That is, the OpenMP API omp_get_num_devices() will always return 1.
    - Currently, gpurun creates masks that are mutually exclusive of each other.
      That is, the MPI processes will not share CUs. If number of ranks is not
      perfectly divisible by number of CUs or number of GPUs, some resources
      would be unused.
-     set GPURUN_VERBOSE=1 to see overall cu utilization.
+     Set GPURUN_VERBOSE=1 or 2 to see overall cu utilization.
    - Works with AOMP 15.0-0 or ROCM 5.0 or greater
 
    Notes:
      With mpirun, this utility distributes GPUs and their CUs across
      multiple ranks of an MPI job into mutually exclusive sets of CUs.
      It uses OpenMPI environment variables OMPI_COMM_WORLD_LOCAL_SIZE
-     and OMPI_COMM_WORLD_LOCAL_RANK to determine visible devices and
+     and OMPI_COMM_WORLD_LOCAL_RANK to set visible devices and a
      the mutually exclusive CU mask.
 
-     An rplace (rank place) is a set of CUs for a rank that form the cu mask.
-     This utility calculates the number of rplaces needed to contain the all
+     An rplace (rank place) is a subset of CUs for a rank. 
+     This utility calculates the number of rplaces needed to contain all
      the specified number of ranks for this node. If number of ranks not
      divisible by number of GPUs, then there will be more rplaces than ranks.
      The number of CUs in an rplace is calculated by dividing the number of
      CUs per GPU by the number of rplaces per GPU. This is also the number of
-     bits set in the CU mask. This is the number of physical locations
+     bits set in the CU mask. This is also the number of physical locations
      available for an OpenMP team to execute. This utility exports that number
      to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
      could be used by the application or runtume to adjust the number
@@ -254,7 +260,7 @@ done
 _CUs_per_rplace=$(( $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU ))
 
 # Diagnostics:
-if [ $_local_rank_num == 0 ] && [ "$GPURUN_VERBOSE" == "1" ]; then
+if [ $_local_rank_num == 0 ] && [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "2" ]]; then
    _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
    _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_available_devices ))
    _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
@@ -340,15 +346,21 @@ export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
-   [ "$GPURUN_VERBOSE" != "0" ] && \
+   [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
+   [ "$GPURUN_VERBOSE" == "2" ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n "  \
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd"
    ROCR_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
 else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
-   [ "$GPURUN_VERBOSE" != "0" ] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d 0:%s \n" \
+   [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
+   [ "$GPURUN_VERBOSE" == "2" ] && \
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" \
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd"
    ROCR_VISIBLE_DEVICES=$_device_num \
    OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
    HSA_CU_MASK=0:$_mask \
