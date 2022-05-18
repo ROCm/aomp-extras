@@ -270,6 +270,7 @@ BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_daz_opt_on.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_finite_only_off.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_unsafe_math_off.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_wavefrontsize64_on.bc"
+BCFILES="$BCFILES $AMDGCNDEVICELIB/oclc_abi_version_400.bc"
 #BCFILES="$BCFILES $DEVICELIB/libdevice/libm-amdgcn-$LC_MCPU.bc"
 
 if [ -f $ATMI_PATH/lib/libdevice/libatmi.bc ]; then
