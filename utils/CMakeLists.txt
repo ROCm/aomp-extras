@@ -178,5 +178,5 @@ else()
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask
      ${CMAKE_CURRENT_BINARY_DIR}/gpurun
-   DESTINATION "bin")
+   DESTINATION "${DEVEL_PACKAGE}bin")
 endif()
