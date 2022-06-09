@@ -8,7 +8,7 @@
 #
 PROGVERSION="X.Y-Z"
 #
-# Copyright (c) 2020 ADVANCED MICRO DEVICES, INC.  
+# Copyright(C) 2020 Advanced Micro Devices, Inc. All rights reserved. 
 # 
 # AMD is granting you permission to use this software and documentation (if any) (collectively, the 
 # Materials) pursuant to the terms and conditions of the Software License Agreement included with the 

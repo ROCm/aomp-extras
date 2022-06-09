@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Copyright(C) 2019 Advanced Micro Devices, Inc. All rights reserved.
 # make_header_from_ll_defines.sh:
 #    To use low level hc functions maintained in .ll, we need c/cpp headers so 
 #    we can use them properly in hip device library implementations. 

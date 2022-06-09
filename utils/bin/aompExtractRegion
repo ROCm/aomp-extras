@@ -1,5 +1,6 @@
 #!/bin/bash
 # This string is changed by cmake when building and installing aomp utils.
+# Copyright(C) 2019 Advanced Micro Devices, Inc. All rights reserved.
 PROGVERSION="X.Y-Z"
 
 function version(){
@@ -20,7 +21,7 @@ function usage(){
     -version     Print the version of aompExtractRegion
     -n           Dump the first few lines of image .note section
 
-   Copyright (c) 2019 ADVANCED MICRO DEVICES, INC.
+   Copyright(C) 2022 Advanced Micro Devices, Inc. All rights reserved. 
 
 EOF
    exit 1

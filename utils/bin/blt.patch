@@ -1,3 +1,4 @@
+# Copyright(C) 2019 Advanced Micro Devices, Inc. All rights reserved.
 diff --git a/cmake/SetupCompilerOptions.cmake b/cmake/SetupCompilerOptions.cmake
 index a9e0743..d5f9da8 100644
 --- a/cmake/SetupCompilerOptions.cmake

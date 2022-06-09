@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright(C) 2019 Advanced Micro Devices, Inc. All rights reserved.
 #
 # unbundle.sh: use clang clang-offload-bundler tool to unbundle files
 #              This script is the companion to bundle.sh.  It will name the 
