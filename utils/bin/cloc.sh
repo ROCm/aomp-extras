@@ -10,7 +10,7 @@
 #
 PROGVERSION="X.Y-Z"
 #
-# Copyright (c) 2018 ADVANCED MICRO DEVICES, INC.  
+# Copyright(C) 2018 Advanced Micro Devices, Inc. All rights reserved. 
 # 
 # AMD is granting you permission to use this software and documentation (if any) (collectively, the 
 # Materials) pursuant to the terms and conditions of the Software License Agreement included with the 
@@ -262,7 +262,6 @@ fi
 
 BCFILES=""
 
-BCFILES="$BCFILES $DEVICELIB/libdevice/libaompextras-amdgcn-$LC_MCPU.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/opencl.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/ocml.bc"
 BCFILES="$BCFILES $AMDGCNDEVICELIB/ockl.bc"

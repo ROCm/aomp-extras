@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright(C) 2019 Advanced Micro Devices, Inc. All rights reserved.
 #
 #  bundle.sh: Use the clang bundle tool to combine files for
 #             different targets that were created by coral 3.8 compiler.  
