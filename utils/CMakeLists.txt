@@ -1,3 +1,4 @@
+# Copyright (C) 2019–2022 Advanced Micro Devices, Inc. All rights Reserved.
 ##===----------------------------------------------------------------------===##
 #
 #                     The LLVM Compiler Infrastructure
