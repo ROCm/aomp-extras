@@ -57,7 +57,7 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 KOKKOS_BRANCH=develop
-KOKKOS_TAG=7c76889
+KOKKOS_TAG=b2371de
 NUM_THREADS=${NUM_THREADS:-8}
 
 if [[ "$AOMP" =~ "opt" ]]; then
@@ -76,7 +76,7 @@ AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
 # Determine if AOMP_GPU is supported in KOKKOS. Currently looks for AMD only.
 kokkos_regex="gfx(.*)"
-supported_arch="900 906 908"
+supported_arch="900 906 908 90A"
 declare -A arch_array
 echo "Supported KOKKOS GFX: $supported_arch"
 
@@ -87,6 +87,7 @@ done
 
 if [[ "$AOMP_GPU" =~ $kokkos_regex ]]; then
   matched_arch=${BASH_REMATCH[1]}
+  matched_arch=${matched_arch^^}
 else
   echo "Error: Cannot determine KOKKOS_ARCH"
 fi
@@ -142,27 +143,18 @@ function patchkokkos(){
 patchfile1=/tmp/kokkos1_$$.patch
 /bin/cat >$patchfile1 <<"EOF"
 diff --git a/core/unit_test/CMakeLists.txt b/core/unit_test/CMakeLists.txt
-index b616e80f..0495f630 100644
+index 7cfc3d161..c12d37e24 100644
 --- a/core/unit_test/CMakeLists.txt
 +++ b/core/unit_test/CMakeLists.txt
-@@ -138,7 +138,7 @@ foreach(Tag Threads;Serial;OpenMP;Cuda;HPX;OpenMPTarget;HIP;SYCL)
+@@ -161,7 +161,7 @@ foreach(Tag Threads;Serial;OpenMP;Cuda;HPX;OpenMPTarget;HIP;SYCL)
          Reducers_a
          Reducers_b
          Reducers_c
 -        Reducers_d
-+        #Reducers_d
++       #Reducers_d
+         Reducers_e
          Reductions_DeviceView
          Scan
-         SharedAlloc
-@@ -309,7 +309,7 @@ IF(KOKKOS_ENABLE_OPENMPTARGET
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_a.cpp
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_b.cpp
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_c.cpp
--    ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_d.cpp
-+#    ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Reducers_d.cpp
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_ViewMapping_b.cpp
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_TeamBasic.cpp
-     ${CMAKE_CURRENT_BINARY_DIR}/openmptarget/TestOpenMPTarget_Scan.cpp
 EOF
   echo patch -p1 $patchfile1
   patch -p1 < $patchfile1
@@ -223,7 +215,7 @@ else
    # ensure kokkos finds AOMP clang first
    export PATH=$AOMP/bin:$PATH
    ARGS=( 
-    -D CMAKE_BUILD_TYPE=Debug
+    -D CMAKE_BUILD_TYPE=Release
     -D CMAKE_CXX_STANDARD=17
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
@@ -233,6 +225,7 @@ else
     -D Kokkos_ENABLE_OPENMPTARGET=ON
     -D Kokkos_ENABLE_COMPILER_WARNINGS=ON
     -D Kokkos_ENABLE_TESTS=ON
+    -D Kokkos_OPENMPTARGET_EXCLUDE_TESTS="Test12a_ThreadScratch"
    )
    cmake "${ARGS[@]}" $KOKKOS_SOURCE_DIR
 fi
@@ -240,6 +233,7 @@ if [ $? != 0 ] ; then
    echo
    echo "ERROR in Kokkos cmake"
    echo "If HWLOC is not found, set environment variable HWLOC_DIR=/path/to/hwloc."
+   echo "We recommend cmake 3.17.5 and above."
    echo
    exit 1
 fi
