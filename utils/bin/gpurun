@@ -254,7 +254,7 @@ if [ $_uncovered_ranks != 0 ] ; then
    # then add an extra rplace per GPU to make room for remainder.
    _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
 fi
-_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU + $DEVICE_BIAS ))
 _utilized_CUs_per_device=$_available_CUs_per_device
 _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
 # Lower utilized CUs till divisible by number of rplaces per GPU
