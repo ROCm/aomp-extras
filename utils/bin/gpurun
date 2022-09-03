@@ -69,6 +69,9 @@ function version(){
    echo $0 version $PROGVERSION
    exit 0
 }
+function verbosity() {
+   export GPURUN_VERBOSE=0
+}
 function usage(){
 /bin/cat 2>&1 <<"EOF"
 
@@ -90,6 +93,7 @@ function usage(){
 
    Options:
       -h        Print this help message and exit
+      -s        suppress output, often useful in benchmarking
       --version Print version of gpurun and exit
 
    Generated (output) Environment Variables:
@@ -152,6 +156,7 @@ EOF
 [ "$1" == "--version" ] && version
 [ "$1" == "-version" ] && version
 [ "$1" == "-h" ] && usage
+[ "$1" == "-s" ] && verbosity && shift
 [ "$1" == "-help" ] && usage
 [ "$1" == "--help" ] && usage
 
