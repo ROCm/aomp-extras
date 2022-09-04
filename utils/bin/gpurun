@@ -169,6 +169,8 @@ if [ -z "$_num_local_ranks" ] ; then
    _local_rank_num=0
 fi
 
+DEVICE_BIAS=${DEVICE_BIAS:-0}
+
 # Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
