@@ -169,7 +169,7 @@ if [ -z "$_num_local_ranks" ] ; then
    _local_rank_num=0
 fi
 
-DEVICE_BIAS=${DEVICE_BIAS:-0}
+GPURUN_DEVICE_BIAS=${GPURUN_DEVICE_BIAS:-0}
 
 # Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
@@ -256,7 +256,7 @@ if [ $_uncovered_ranks != 0 ] ; then
    # then add an extra rplace per GPU to make room for remainder.
    _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
 fi
-_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU + $DEVICE_BIAS ))
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU + $GPURUN_DEVICE_BIAS ))
 _utilized_CUs_per_device=$_available_CUs_per_device
 _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
 # Lower utilized CUs till divisible by number of rplaces per GPU
