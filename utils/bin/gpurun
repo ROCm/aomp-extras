@@ -69,6 +69,9 @@ function version(){
    echo $0 version $PROGVERSION
    exit 0
 }
+function verbosity() {
+   export GPURUN_VERBOSE=0
+}
 function usage(){
 /bin/cat 2>&1 <<"EOF"
 
@@ -90,6 +93,7 @@ function usage(){
 
    Options:
       -h        Print this help message and exit
+      -s        suppress output, often useful in benchmarking
       --version Print version of gpurun and exit
 
    Generated (output) Environment Variables:
@@ -152,6 +156,7 @@ EOF
 [ "$1" == "--version" ] && version
 [ "$1" == "-version" ] && version
 [ "$1" == "-h" ] && usage
+[ "$1" == "-s" ] && verbosity && shift
 [ "$1" == "-help" ] && usage
 [ "$1" == "--help" ] && usage
 
@@ -163,6 +168,8 @@ if [ -z "$_num_local_ranks" ] ; then
    _num_local_ranks=1
    _local_rank_num=0
 fi
+
+GPURUN_DEVICE_BIAS=${GPURUN_DEVICE_BIAS:-0}
 
 # Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
@@ -249,7 +256,7 @@ if [ $_uncovered_ranks != 0 ] ; then
    # then add an extra rplace per GPU to make room for remainder.
    _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
 fi
-_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU + $GPURUN_DEVICE_BIAS ))
 _utilized_CUs_per_device=$_available_CUs_per_device
 _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
 # Lower utilized CUs till divisible by number of rplaces per GPU
