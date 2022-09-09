@@ -351,7 +351,9 @@ done < $_tfile
 rm $_tfile
 
 [ "$*" == "" ] && _taskset_cmd=""
-export ROCR_VISIBLE_DEVICES=$_device_num
+#  FIXME: What if existing ROCR_VISIBLE_DEVICES has multiple non-sequential
+#         devices not starting at 0.
+[[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
@@ -360,7 +362,7 @@ if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n "  \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd"
-   ROCR_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
+   $_taskset_cmd $*
 else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
@@ -370,8 +372,6 @@ else
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd"
-   ROCR_VISIBLE_DEVICES=$_device_num \
-   OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
 fi
