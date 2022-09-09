@@ -332,6 +332,8 @@ else
 fi
 #NUMANODE=`lspci -vmm -s $_bdfidstrc | grep -m 1 NUMANode | cut -d":" -f2`
 NUMANODE=`cat /sys/bus/pci/devices/0000:$_bdfidstrc.0/numa_node`
+# Sometimes lscpu shows 0 for the node, when /sys/bus/pci/.. shows -1
+[[ $NUMANODE == -1 ]] && NUMANODE=0
 _taskset_cmd="taskset -c "
 lscpu --extended=cpu,node >$_tfile
 while read _linepair ; do
