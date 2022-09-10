@@ -69,6 +69,9 @@ function version(){
    echo $0 version $PROGVERSION
    exit 0
 }
+function verbosity() {
+   export GPURUN_VERBOSE=0
+}
 function usage(){
 /bin/cat 2>&1 <<"EOF"
 
@@ -90,6 +93,7 @@ function usage(){
 
    Options:
       -h        Print this help message and exit
+      -s        suppress output, often useful in benchmarking
       --version Print version of gpurun and exit
 
    Generated (output) Environment Variables:
@@ -152,6 +156,7 @@ EOF
 [ "$1" == "--version" ] && version
 [ "$1" == "-version" ] && version
 [ "$1" == "-h" ] && usage
+[ "$1" == "-s" ] && verbosity && shift
 [ "$1" == "-help" ] && usage
 [ "$1" == "--help" ] && usage
 
@@ -163,6 +168,8 @@ if [ -z "$_num_local_ranks" ] ; then
    _num_local_ranks=1
    _local_rank_num=0
 fi
+
+GPURUN_DEVICE_BIAS=${GPURUN_DEVICE_BIAS:-0}
 
 # Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
@@ -249,7 +256,7 @@ if [ $_uncovered_ranks != 0 ] ; then
    # then add an extra rplace per GPU to make room for remainder.
    _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
 fi
-_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+_device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU + $GPURUN_DEVICE_BIAS ))
 _utilized_CUs_per_device=$_available_CUs_per_device
 _rem2=$(( $_utilized_CUs_per_device % $_number_of_rplaces_per_GPU ))
 # Lower utilized CUs till divisible by number of rplaces per GPU
@@ -325,6 +332,8 @@ else
 fi
 #NUMANODE=`lspci -vmm -s $_bdfidstrc | grep -m 1 NUMANode | cut -d":" -f2`
 NUMANODE=`cat /sys/bus/pci/devices/0000:$_bdfidstrc.0/numa_node`
+# Sometimes lscpu shows 0 for the node, when /sys/bus/pci/.. shows -1
+[[ $NUMANODE == -1 ]] && NUMANODE=0
 _taskset_cmd="taskset -c "
 lscpu --extended=cpu,node >$_tfile
 while read _linepair ; do
@@ -342,7 +351,9 @@ done < $_tfile
 rm $_tfile
 
 [ "$*" == "" ] && _taskset_cmd=""
-export ROCR_VISIBLE_DEVICES=$_device_num
+#  FIXME: What if existing ROCR_VISIBLE_DEVICES has multiple non-sequential
+#         devices not starting at 0.
+[[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
@@ -351,7 +362,7 @@ if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n "  \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd"
-   ROCR_VISIBLE_DEVICES=$_device_num OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace $_taskset_cmd $*
+   $_taskset_cmd $*
 else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
@@ -361,8 +372,6 @@ else
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" \
          $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd"
-   ROCR_VISIBLE_DEVICES=$_device_num \
-   OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace \
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
 fi
