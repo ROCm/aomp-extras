@@ -20,9 +20,7 @@
 #    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
 #
 #  TODO:
-#  - Use existing setting of ROCR_VISIBLE_DEVICES to avoid those GPUs.
-#    This utility currently ignores any previous setting to
-#    ROCR_VISIBLE_DEVICES and overrides it with a single selected GPU.
+#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
 #  - Warn if HSA_CU_MASK is preset and use that instead of calculated MASK.
 #    Note that rocminfo does not recognize ROCR_VISIBLE_DEVICES or HSA_CU_MASK.
 #  - Add support for cuda.
@@ -80,12 +78,14 @@ function usage(){
            Linux 'taskset' utility to limit the application process to
            execute only on CPU cores in the same NUMA domain as
            the selected GPU to improve efficiency of memory transfers.
-           This utility sets environment variable ROCR_VISIBLE_DEVICES to
-           specify the selected GPU. It also sets OMPX_TARGET_TEAM_SLOTS
-           to the number of CUs available to the process.  Lastly, if
-           necessary, it sets HSA_CU_MASK to the subset of CUs for the
-           specified OpenMPI rank when more than one OpenMPI rank will
-           utilize the same GPU.
+           This utility sets environment variable ROCR_VISIBLE_DEVICES
+           if the number of visible GPUs is greater than 1. It sets
+           it to limit the application binary to a single GPU.
+           This utility sets environment variable HSA_CU_MASK
+           to control which CUs are available to the process only
+           when more than one OpenMPI rank will utilize the same GPU
+           Lastly, it sets env variable OMPX_TARGET_TEAM_PROCS to the
+           number of CUs available to the process after masking.
 
    Usage:
       gpurun <executable> [ <executable args> ]
@@ -97,7 +97,7 @@ function usage(){
       --version Print version of gpurun and exit
 
    Generated (output) Environment Variables:
-      OMPX_TARGET_TEAM_SLOTS - Number of CUs available to process
+      OMPX_TARGET_TEAM_PROCS - Number of CUs available to process
       ROCR_VISIBLE_DEVICES - The logical device number for selected device
       HSA_CU_MASK - The CU mask for the device.
 
@@ -114,6 +114,8 @@ function usage(){
    Input environment variables set by OpenMP mpirun
       OMPI_COMM_WORLD_LOCAL_SIZE Number of ranks on this node
       OMPI_COMM_WORLD_LOCAL_RANK The local rank number 0-(nranks-1)
+      This script also checks for MPI_LOCALNRANKS/MPI_LOCALRANKID
+      and MPI_COMM_WORLD_LOCAL_SIZE/MPI_COMM_WORLD_LOCAL_RANK
 
    Limitations:
    - This utility assigns no more than one GPU to the application process.
@@ -126,7 +128,7 @@ function usage(){
    - Works with AOMP 15.0-0 or ROCM 5.0 or greater
 
    Notes:
-     With mpirun, this utility distributes GPUs and their CUs across
+     With MPI, this utility distributes GPUs and their CUs across
      multiple ranks of an MPI job into mutually exclusive sets of CUs.
      It uses OpenMPI environment variables OMPI_COMM_WORLD_LOCAL_SIZE
      and OMPI_COMM_WORLD_LOCAL_RANK to set visible devices and a
@@ -140,10 +142,10 @@ function usage(){
      CUs per GPU by the number of rplaces per GPU. This is also the number of
      bits set in the CU mask. This is also the number of physical locations
      available for an OpenMP team to execute. This utility exports that number
-     to the environment variable OMPX_TARGET_TEAM_SLOTS. This value
+     to the environment variable OMPX_TARGET_TEAM_PROCS. This value
      could be used by the application or runtume to adjust the number
      of desired teams in a target region. If no masking occurs, the entire
-     GPU is available for the process and OMPX_TARGET_TEAM_SLOTS is set to
+     GPU is available for the process and OMPX_TARGET_TEAM_PROCS is set to
      the total number of CUs on the GPU.
 
    Copyright (c) 2022  ADVANCED MICRO DEVICES, INC.
@@ -163,7 +165,17 @@ EOF
 #  Get environment variables set by OpenMPI
 _num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
 _local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
-# If not started from openmpi mpirun, assume this is wrapper for single process on single GPU
+# If not OpenMPI, check for Platform MPI, MVAPICH
+if [ -z "$_num_local_ranks" ] ; then
+  _num_local_ranks=$MPI_LOCALNRANKS
+  _local_rank_num=$MPI_LOCALRANKID
+fi
+# Also try MPI_COMM_WORLD env vars
+if [ -z "$_num_local_ranks" ] ; then
+  _num_local_ranks=$MPI_COMM_WORLD_LOCAL_SIZE
+  _local_rank_num=$MPI_COMM_WORLD_LOCAL_RANK
+fi
+# If none of the above MPIs, assume gpurun is wrapper for single process on single GPU
 if [ -z "$_num_local_ranks" ] ; then
    _num_local_ranks=1
    _local_rank_num=0
@@ -301,8 +313,8 @@ if [ $_local_rank_num == 0 ] && [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE"
    echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
    [ $_extra_diags ] && \
    echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
-   echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_SLOTS)"
-   echo "-  FORMULA: OMPX_TARGET_TEAM_SLOTS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
+   echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_PROCS)"
+   echo "-  FORMULA: OMPX_TARGET_TEAM_PROCS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
    echo "-  NODE UTILIZATION:  $_utilization %"
 fi
 
@@ -354,7 +366,7 @@ rm $_tfile
 #  FIXME: What if existing ROCR_VISIBLE_DEVICES has multiple non-sequential
 #         devices not starting at 0.
 [[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
-export OMPX_TARGET_TEAM_SLOTS=$_CUs_per_rplace
+export OMPX_TARGET_TEAM_PROCS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
    [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
