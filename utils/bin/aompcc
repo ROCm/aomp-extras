@@ -47,6 +47,8 @@ PROGVERSION="X.Y-Z"
 # Software License Agreement.
 # 
 
+echo "Warning: aompcc is now deprecated."
+
 # FIXME: Remove this after backend makes this default
 TEMP_FIX_ARGS=""
 function usage(){
@@ -254,6 +256,9 @@ AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then
    echo "ERROR: AOMP not found at $AOMP"
    echo "       Please install AOMP or set environment variable AOMP"
+   echo ""
+   echo "Examples: export AOMP=/opt/rocm/llvm"
+   echo "          export AOMP=/usr/lib/aomp"
    exit 1
 fi
 
@@ -354,14 +359,8 @@ fi
 
 #  Pick the compiler based on filetype 
 COMPILER_BIN_DIR="$AOMP/bin"
-
-if [ -d $AOMP/clang/13.0.0/include ] ; then
-   CLANG_INCLUDE_DIR=$AOMP/clang/13.0.0/include
-elif [ -d $AOMP/clang/12.0.0/include ] ; then
-   CLANG_INCLUDE_DIR=$AOMP/clang/12.0.0/include
-else
-   CLANG_INCLUDE_DIR=$AOMP/clang/11.0.0/include
-fi
+clangversion=$($AOMP/bin/clang --version | grep -oP '(?<=clang version )[0-9.]+')
+CLANG_INCLUDE_DIR="$AOMP"/lib/clang/"$clangversion"/include
 
 if [ "$HOW_CALLED" == "hipcc" ] || [ "$INPUT_FTYPE" == "hip" ] ; then
    CLANG_CMD="clang++"
