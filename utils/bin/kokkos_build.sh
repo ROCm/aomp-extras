@@ -1,13 +1,4 @@
 #!/bin/bash
-#
-#  kokkos_build.sh: Script to clone and build kokkos for a specific GPU 
-#                   This will build kokkos in directory $HOME/kokkos_build.<GPUNAME>
-#
-#
-#  Written by Greg Rodgers  Gregory.Rodgers@amd.com
-#
-PROGVERSION="X.Y-Z"
-#
 # Copyright(C) 2020 Advanced Micro Devices, Inc. All rights reserved. 
 # 
 # AMD is granting you permission to use this software and documentation (if any) (collectively, the 
@@ -46,6 +37,15 @@ PROGVERSION="X.Y-Z"
 # EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the 
 # Software License Agreement.
 # 
+#
+#  kokkos_build.sh: Script to clone and build kokkos for a specific GPU 
+#                   This will build kokkos in directory $HOME/kokkos_build.<GPUNAME>
+#
+#
+#  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+#
+PROGVERSION="X.Y-Z"
+#
 
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
 if [ ! -d $AOMP ] ; then

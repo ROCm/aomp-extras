@@ -1,32 +1,4 @@
 #!/bin/bash
-#
-#  gpurun: Process launch utility for GPU applications. This is a wrapper
-#          to execute a GPU application including OpenMPI GPU applications.
-#          See help message below (gpurun -h) for more information.
-#
-#  Usage Examples:
-#    _appbin=true
-#    _appargs=""
-#    gpurun $_appbin $_appargs
-#    mpirun -np  4 gpurun $_appbin $_appargs
-#    mpirun -np  8 gpurun $_appbin $_appargs
-#    mpirun -np  9 gpurun $_appbin $_appargs
-#    mpirun -np 23 gpurun $_appbin $_appargs
-#    # For large numbers of ranks, increase slots with a hosfile.
-#    _host_file="/tmp/host_file$$"
-#    echo "`hostname` slots=64" >$_host_file
-#    mpirun -np 64 -hostfile $_host_file gpurun $_appbin $_appargs
-#    mpirun -np 60 -hostfile $_host_file gpurun $_appbin $_appargs
-#    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
-#
-#  TODO:
-#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
-#  - Warn if HSA_CU_MASK is preset and use that instead of calculated MASK.
-#    Note that rocminfo does not recognize ROCR_VISIBLE_DEVICES or HSA_CU_MASK.
-#  - Add support for cuda.
-#  - Add support for other mpi launchers besides openmpi's mpirun.
-#  - If gpurun becomes popular, convert this script to a program
-#
 # Copyright(C) 2021 Advanced Micro Devices, Inc. All rights reserved.
 #
 # AMD is granting you permission to use this software and documentation (if any) (collectively, the
@@ -61,6 +33,34 @@
 #
 # EXPORT RESTRICTIONS: The Materials may be subject to export restrictions as stated in the
 # Software License Agreement.
+#
+#  gpurun: Process launch utility for GPU applications. This is a wrapper
+#          to execute a GPU application including OpenMPI GPU applications.
+#          See help message below (gpurun -h) for more information.
+#
+#  Usage Examples:
+#    _appbin=true
+#    _appargs=""
+#    gpurun $_appbin $_appargs
+#    mpirun -np  4 gpurun $_appbin $_appargs
+#    mpirun -np  8 gpurun $_appbin $_appargs
+#    mpirun -np  9 gpurun $_appbin $_appargs
+#    mpirun -np 23 gpurun $_appbin $_appargs
+#    # For large numbers of ranks, increase slots with a hosfile.
+#    _host_file="/tmp/host_file$$"
+#    echo "`hostname` slots=64" >$_host_file
+#    mpirun -np 64 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 60 -hostfile $_host_file gpurun $_appbin $_appargs
+#    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
+#
+#  TODO:
+#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
+#  - Warn if HSA_CU_MASK is preset and use that instead of calculated MASK.
+#    Note that rocminfo does not recognize ROCR_VISIBLE_DEVICES or HSA_CU_MASK.
+#  - Add support for cuda.
+#  - Add support for other mpi launchers besides openmpi's mpirun.
+#  - If gpurun becomes popular, convert this script to a program
+#
 
 PROGVERSION=X.Y-Z
 function version(){
