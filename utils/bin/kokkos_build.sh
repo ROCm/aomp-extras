@@ -63,11 +63,11 @@ if [[ "$AOMP" =~ "opt" ]]; then
   #print_info "Set AOMP_GPU with rocm_agent_enumerator.
   #export DETECTED_GPU=$($AOMP/../bin/rocm_agent_enumerator | grep -m 1 -E gfx[^0]{1}.{2})
 else
-  print_info "Set AOMP_GPU with rocminfo."
+  print_info "Set AOMP_GPU with offload-arch."
   if [ -a $AOMP/bin/rocminfo ]; then
-    export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} |  awk '{print $2}')
+    export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
   else
-    export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} |  awk '{print $2}')
+    export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
   fi
 fi
 
