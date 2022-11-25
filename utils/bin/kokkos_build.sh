@@ -38,10 +38,11 @@ function print_error() {
 
   echo "[Error]: $toPrint"
 }
-
-AOMP=${AOMP:-$_AOMP_INSTALL_DIR_}
+echo "$AOMP"
+AOMP="${AOMP:-_AOMP_INSTALL_DIR_}"
+echo "$AOMP"
 if [ ! -d $AOMP ] ; then
-   print_error "AOMP is not installed in $AOMP. Please set the environment variable."
+   print_error "AOMP is not installed in ${AOMP}. Please set the environment variable."
    exit 1
 fi
 
@@ -269,8 +270,11 @@ else
     -D Kokkos_ENABLE_OPENMP=ON
     -D Kokkos_ENABLE_OPENMPTARGET=ON
     -D Kokkos_ENABLE_COMPILER_WARNINGS=ON
-    -D Kokkos_ENABLE_TESTS=ON
+    -D Kokkos_ENABLE_TESTS=OFF
    )
+
+   print_info "Running cmake via"
+   echo "cmake ${ARGS[@]} $KOKKOS_SOURCE_DIR"
    cmake "${ARGS[@]}" $KOKKOS_SOURCE_DIR
 fi
 if [ $? != 0 ] ; then
@@ -278,6 +282,7 @@ if [ $? != 0 ] ; then
    echo "ERROR in Kokkos cmake"
    echo "If HWLOC is not found, set environment variable HWLOC_DIR=/path/to/hwloc."
    echo
+   echo "cmake ${ARGS[@]} $KOKKOS_SOURCE_DIR"
    exit 1
 fi
 
