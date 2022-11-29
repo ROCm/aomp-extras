@@ -254,8 +254,22 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
 fi
 
 if [ "$kokkos_backend" == "hip" ] ; then
-   print_error "hip backend for kokkos not supported yet"
-   exit 1
+  export PATH=$AOMP/bin:$PATH
+  export ROCM_PATH=$AOMP # Kokkos searches this for HIP parts
+  ARGS=(
+    -D CMAKE_BUILD_TYPE=Debug
+    -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
+    -D CMAKE_CXX_STANDARD=17
+    -D CMAKE_CXX_EXTENSIONS=OFF
+    -D CMAKE_CXX_COMPILER=$AOMP/bin/clang++
+    -D Kokkos_ARCH_NATIVE=ON
+    -D Kokkos_ARCH_"$KOKKOS_ARCH"=ON
+    -D Kokkos_ENABLE_OPENMP=ON
+    -D Kokkos_ENABLE_HIP=ON
+    -D Kokkos_ENABLE_COMPILER_WARNINGS=ON
+    -D Kokkos_ENABLE_TESTS=OFF
+  )
+
 else
    # ensure kokkos finds AOMP clang first
    export PATH=$AOMP/bin:$PATH
@@ -273,10 +287,12 @@ else
     -D Kokkos_ENABLE_TESTS=OFF
    )
 
+fi
+
    print_info "Running cmake via"
    echo "cmake ${ARGS[@]} $KOKKOS_SOURCE_DIR"
    cmake "${ARGS[@]}" $KOKKOS_SOURCE_DIR
-fi
+
 if [ $? != 0 ] ; then
    echo
    echo "ERROR in Kokkos cmake"
