@@ -274,7 +274,7 @@ else
    # ensure kokkos finds AOMP clang first
    export PATH=$AOMP/bin:$PATH
    ARGS=(
-    -D CMAKE_BUILD_TYPE=Debug
+    -D CMAKE_BUILD_TYPE=Release
     -D CMAKE_CXX_STANDARD=17
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
@@ -284,7 +284,7 @@ else
     -D Kokkos_ENABLE_OPENMP=ON
     -D Kokkos_ENABLE_OPENMPTARGET=ON
     -D Kokkos_ENABLE_COMPILER_WARNINGS=ON
-    -D Kokkos_ENABLE_TESTS=OFF
+    -D Kokkos_ENABLE_TESTS=ON
    )
 
 fi
