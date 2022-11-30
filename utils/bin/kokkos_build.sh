@@ -186,7 +186,7 @@ EOF
     print_error "Patching unsuccessful"
     exit -1
   fi
-  #rm $patchfile1
+ rm $patchfile1
 }
 
 mkdir -p $GIT_DIR
@@ -253,6 +253,8 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
    AOMP_CPUTARGET="ppc64le-linux-gnu"
 fi
 
+export PATH=$HOME/local/install/cmake/bin:$PATH
+
 if [ "$kokkos_backend" == "hip" ] ; then
   export PATH=$AOMP/bin:$PATH
   export ROCM_PATH=$AOMP # Kokkos searches this for HIP parts
@@ -279,6 +281,7 @@ else
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
     -D CMAKE_CXX_COMPILER=$AOMP/bin/clang++
+    -D CMAKE_VERBOSE_MAKEFILE=ON
     -D Kokkos_ARCH_NATIVE=ON
     -D Kokkos_ARCH_"$KOKKOS_ARCH"=ON
     -D Kokkos_ENABLE_OPENMP=ON
