@@ -57,6 +57,7 @@ KOKKOS_SHA=7c76889 # This is pretty old
 KOKKOS_SHA=${_KOKKOS_SHA_:-}
 NUM_THREADS=${NUM_THREADS:-8}
 
+
 if [[ "$AOMP" =~ "opt" ]]; then
   # xargs trims the string off whitespaces
   export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
@@ -254,6 +255,7 @@ if [ "$UNAMEP" == "ppc64le" ] ; then
 fi
 
 export PATH=$HOME/local/install/cmake/bin:$PATH
+which cmake
 
 if [ "$kokkos_backend" == "hip" ] ; then
   export PATH=$AOMP/bin:$PATH
@@ -311,7 +313,7 @@ echo
 print_info "Starting build ..."
 
 print_info make -j$NUM_THREADS
-make -j$NUM_THREADS
+CCC_OVERRIDE_OPTIONS="--O3 +-O2" make -j$NUM_THREADS
 
 if [ $? != 0 ] ; then
    print_error "ERROR in Kokkos build"
