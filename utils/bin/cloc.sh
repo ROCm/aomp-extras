@@ -322,7 +322,7 @@ fi
 CMD_LLA=${CMD_LLA:-llvm-dis}
 CMD_ASM=${CMD_ASM:-llvm-as}
 CMD_LLL=${CMD_LLL:-llvm-link}
-CMD_OPT=${CMD_OPT:-opt -O$LLVMOPT -mcpu=$LC_MCPU -amdgpu-annotate-kernel-features}
+CMD_OPT=${CMD_OPT:-opt -mcpu=$LC_MCPU -amdgpu-annotate-kernel-features}
 EXTRA_LLC_OPTS="-amdgpu-internalize-symbols -amdgpu-early-inline-all"
 CMD_LLC=${CMD_LLC:-llc -mtriple ${TARGET_TRIPLE} -filetype=obj -mcpu=$LC_MCPU $EXTRA_LLC_OPTS}
 
