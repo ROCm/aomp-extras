@@ -57,10 +57,12 @@ KOKKOS_SHA=7c76889 # This is pretty old
 KOKKOS_SHA=${_KOKKOS_SHA_:-}
 NUM_THREADS=${NUM_THREADS:-8}
 
+COMPILERNAME_TO_USE=${_COMPILER_TO_USE_:-clang++}
+
 
 if [[ "$AOMP" =~ "opt" ]]; then
   # xargs trims the string off whitespaces
-  export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
+  export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   print_info "Set AOMP_GPU with rocminfo: $DETECTED_GPU"
   #print_info "Set AOMP_GPU with rocm_agent_enumerator.
   #export DETECTED_GPU=$($AOMP/../bin/rocm_agent_enumerator | grep -m 1 -E gfx[^0]{1}.{2})
@@ -73,7 +75,7 @@ else
   fi
 fi
 
-AOMP_VERSION=$($AOMP/bin/clang++ --version | head -n 1)
+AOMP_VERSION=$($AOMP/bin/${COMPILERNAME_TO_USE} --version | head -n 1)
 
 AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
@@ -275,6 +277,7 @@ if [ "$kokkos_backend" == "hip" ] ; then
   )
 
 else
+  #AOMP=$HOME/llvm-AMDGPU-NG
    # ensure kokkos finds AOMP clang first
    export PATH=$AOMP/bin:$PATH
    ARGS=(
@@ -282,7 +285,8 @@ else
     -D CMAKE_CXX_STANDARD=17
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
-    -D CMAKE_CXX_COMPILER=$AOMP/bin/clang++
+    -D CMAKE_CXX_COMPILER=$AOMP/bin/${COMPILERNAME_TO_USE}
+    -D CMAKE_CXX_FLAGS="-mllvm -time-passes"
     -D CMAKE_VERBOSE_MAKEFILE=ON
     -D Kokkos_ARCH_NATIVE=ON
     -D Kokkos_ARCH_"$KOKKOS_ARCH"=ON
@@ -313,7 +317,7 @@ echo
 print_info "Starting build ..."
 
 print_info make -j$NUM_THREADS
-CCC_OVERRIDE_OPTIONS="--O3 +-O2" make -j$NUM_THREADS
+CCC_OVERRIDE_OPTIONS="--O3 +-O2" make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
 
 if [ $? != 0 ] ; then
    print_error "ERROR in Kokkos build"
