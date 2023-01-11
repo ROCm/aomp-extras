@@ -177,15 +177,15 @@ if [ ! -d $AOMP ] ; then
    AOMP="/opt/rocm"
 fi
 if [ ! -d $AOMP ] ; then
-   echo "ERROR: AOMP not found at $AOMP"
-   echo "       Please install AOMP or correctly set env-var AOMP"
+   >&2 echo "ERROR: AOMP not found at $AOMP"
+   >&2 echo "       Please install AOMP or correctly set env-var AOMP"
    exit 1
 fi
 ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
 [ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../bin/rocminfo
 if [ ! -f $ROCMINFO_BINARY ] ; then
-   echo "ERROR: Could not find binary $ROCMINFO_BINARY"
-   echo "       Please correct the installation of ROCM or AOMP"
+   >&2 echo "ERROR: Could not find binary $ROCMINFO_BINARY"
+   >&2 echo "       Please correct the installation of ROCM or AOMP"
    exit 1
 fi
 
@@ -212,10 +212,10 @@ while read _linepair ; do
               _available_CUs_per_device=$last_cu_count
 	   else
               if [[ $_available_CUs_per_device != $last_cu_count ]] ; then
-                 echo "ERROR: Defective node! The cu_count for each GPU must be identical"
-	         echo "       Last CU count : $last_cu_count"
-	         echo "       Previous CU count : $_available_CUs_per_device"
-	         echo "       Number of GPUs : $_available_devices"
+                 >&2 echo "ERROR: Defective node! The cu_count for each GPU must be identical"
+	         >&2 echo "       Last CU count : $last_cu_count"
+	         >&2 echo "       Previous CU count : $_available_CUs_per_device"
+	         >&2 echo "       Number of GPUs : $_available_devices"
 	         exit 1
               fi
            fi
@@ -226,14 +226,14 @@ done < $_tfile
 rm $_tfile
 
 if [[ $_available_devices -lt 1  ]] ; then
-   echo "ERROR: Local rank $_local_rank_num found no GPUS available"
-   echo "       available_devices=$_available_devices"
+   >&2 echo "ERROR: Local rank $_local_rank_num found no GPUS available"
+   >&2 echo "       available_devices=$_available_devices"
    exit 1
 fi
 
 _node_cus=$(( $_available_devices * $_available_CUs_per_device ))
 if [ $_num_local_ranks -gt $_node_cus ] ; then
-   echo "ERROR: Not enough node CUs ($_node_cus) for $_num_local_ranks ranks "
+   >&2 echo "ERROR: Not enough node CUs ($_node_cus) for $_num_local_ranks ranks "
    exit 1
 fi
 
@@ -276,31 +276,31 @@ if [ $_local_rank_num == 0 ] && [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE"
          _extra_diags=true
       fi
    fi
-   echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
-   echo "-  OPENMPI RANKS:     $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
+   >&2 echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
+   >&2 echo "-  OPENMPI RANKS:     $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
    [ $_extra_diags ] && echo
-   echo "-  AVAILALBLE GPUS:   $_available_devices"
+   >&2 echo "-  AVAILALBLE GPUS:   $_available_devices"
    [ $_extra_diags ] && \
-   echo "-- USED GPUS:         $(( $_available_devices - $_wasted_GPUs ))"
+   >&2 echo "-- USED GPUS:         $(( $_available_devices - $_wasted_GPUs ))"
    [ $_extra_diags ] && \
-   echo "-- UNUSED GPUS:       $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
+   >&2 echo "-- UNUSED GPUS:       $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
    [ $_extra_diags ] && echo
-   echo "-  RPLACEs PER NODE:  $_total_GPU_rplaces"
-   echo "-  RPLACEs PER GPU:   $_number_of_rplaces_per_GPU"
+   >&2 echo "-  RPLACEs PER NODE:  $_total_GPU_rplaces"
+   >&2 echo "-  RPLACEs PER GPU:   $_number_of_rplaces_per_GPU"
    [ $_extra_diags ] && \
-   echo "-- USED RPLACEs:      $_num_local_ranks (RANKS)"
+   >&2 echo "-- USED RPLACEs:      $_num_local_ranks (RANKS)"
    [ $_extra_diags ] && \
-   echo "-- UNUSED RPLACEs:    $_total_wasted_rplaces" ; \
-   # echo "-  LAST GPU UNUSED RPLACES:  $(( $_total_wasted_rplaces % $_number_of_rplaces_per_GPU )) "
+   >&2 echo "-- UNUSED RPLACEs:    $_total_wasted_rplaces" ; \
+   #&2 echo "-  LAST GPU UNUSED RPLACES:  $(( $_total_wasted_rplaces % $_number_of_rplaces_per_GPU )) "
    [ $_extra_diags ] && echo
-   echo "-  CUs PER GPU:       $_available_CUs_per_device"
+   >&2 echo "-  CUs PER GPU:       $_available_CUs_per_device"
    [ $_extra_diags ] && \
-   echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
+   >&2 echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
    [ $_extra_diags ] && \
-   echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
-   echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_PROCS)"
-   echo "-  FORMULA: OMPX_TARGET_TEAM_PROCS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
-   echo "-  NODE UTILIZATION:  $_utilization %"
+   >&2 echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
+   >&2 echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_PROCS)"
+   >&2 echo "-  FORMULA: OMPX_TARGET_TEAM_PROCS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
+   >&2 echo "-  NODE UTILIZATION:  $_utilization %"
 fi
 
 if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
@@ -355,20 +355,20 @@ export OMPX_TARGET_TEAM_PROCS=$_CUs_per_rplace
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
    [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE
+      printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE >&2
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n "  \
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd"
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd" >&2
    $_taskset_cmd $*
 else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
    [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" \
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" \ 
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask >&2
    [ "$GPURUN_VERBOSE" == "2" ] && \
       printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" \
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd"
+         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd" &>2
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
 fi
