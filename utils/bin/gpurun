@@ -174,7 +174,12 @@ if [ ! -d $AOMP ] ; then
    AOMP="_AOMP_INSTALL_DIR_"
 fi
 if [ ! -d $AOMP ] ; then
-   AOMP="/opt/rocm"
+   AOMP="/opt/rocm/llvm"
+fi
+if [ ! -d $AOMP ] ; then
+   realpath=`realpath $0`
+   thisdir=`dirname $realpath`
+   AOMP=$thisdir/..
 fi
 if [ ! -d $AOMP ] ; then
    >&2 echo "ERROR: AOMP not found at $AOMP"
