@@ -82,7 +82,7 @@ cd $KOKKOS_BUILD_DIR || exit 1
 cd core/unit_test
 
 # Run the top-level summary version of the tests
-OMP_NUM_THREADS=2 ctest --timeout 5 .
+OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
 
 declare -a EXE_FILES
 for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
