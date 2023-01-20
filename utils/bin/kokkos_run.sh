@@ -82,14 +82,19 @@ cd $KOKKOS_BUILD_DIR || exit 1
 cd core/unit_test
 
 # Run the top-level summary version of the tests
-OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
+if [ "$KOKKOS_RUN_TYPE" == "summary" ]; then
+  OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
+elif [ "$KOKKOS_RUN_TYPE" == "detail" ]; then
 
-declare -a EXE_FILES
-for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
-  echo "$EXE"
-  EXE_FILES+=("$EXE")
-done
-
-for UT in "${EXE_FILES[@]}"; do
-  ${UT}
-done
+  declare -a EXE_FILES
+  for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
+    echo "$EXE"
+    EXE_FILES+=("$EXE")
+  done
+  
+  for UT in "${EXE_FILES[@]}"; do
+    ${UT}
+  done
+else
+  print_error "Please set KOKKOS_RUN_TYPE to summary or detail"
+fi
