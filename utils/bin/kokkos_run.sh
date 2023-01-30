@@ -65,6 +65,7 @@ AOMP_VERSION=$($AOMP/bin/${COMPILERNAME_TO_USE} --version | head -n 1)
 
 AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
+GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_BUILD_PREFIX=${KOKKOS_BUILD_PREFIX:-$HOME}
 
 if [ "$1" == "hip" ] ; then
@@ -77,24 +78,64 @@ else
    KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_omp.$AOMP_GPU}
 fi
 
-cd $KOKKOS_BUILD_DIR || exit 1
+KOKKOS_EXAMPLES_SOURCE_DIR=${KOKKOS_EXAMPLES_SOURCE_DIR:-$GIT_DIR/kokkos-openmptarget-examples}
 
-cd core/unit_test
+## We want to process the command line arguments
+# The script accepts the arguments 'unittest' and 'cgsolve' for now
+# It sets corresponding variables to 'yes' that indicate if these tests should
+# be executed or not
+KOKKOS_RUN_UNIT_TEST='no'
+KOKKOS_RUN_CGSOVLE='no'
 
-# Run the top-level summary version of the tests
-if [ "$KOKKOS_RUN_TYPE" == "summary" ]; then
-  OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
-elif [ "$KOKKOS_RUN_TYPE" == "detail" ]; then
+# We also support summary and detail execution
+KOKKOS_RUN_TYPE='summary'
 
-  declare -a EXE_FILES
-  for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
-    echo "$EXE"
-    EXE_FILES+=("$EXE")
-  done
+if [ "$#" -eq 0 ]; then
+  print_error "Please indicate what to run 'unittest', 'cgsolve'"
+  exit 1
+fi
+
+while (( "$#" )); do
+  if [ "$1" == 'unittest' ]; then
+    KOKKOS_RUN_UNIT_TEST='yes'
+  elif [ "$1" == 'cgsolve' ]; then
+    KOKKOS_RUN_CGSOVLE='yes'
+  fi
+  shift
+done
+
+
+if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
+  cd $KOKKOS_BUILD_DIR || exit 1
   
-  for UT in "${EXE_FILES[@]}"; do
-    ${UT}
-  done
-else
-  print_error "Please set KOKKOS_RUN_TYPE to summary or detail"
+  cd core/unit_test
+  
+  # Run the top-level summary version of the tests
+  if [ "$KOKKOS_RUN_TYPE" == "summary" ]; then
+    OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
+    print_info "For more details, please set KOKKOS_RUN_TYPE to 'detail'"
+  elif [ "$KOKKOS_RUN_TYPE" == "detail" ]; then
+  
+    declare -a EXE_FILES
+    for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
+      echo "$EXE"
+      EXE_FILES+=("$EXE")
+    done
+    
+    for UT in "${EXE_FILES[@]}"; do
+      ${UT}
+    done
+  else
+    print_error "Please set KOKKOS_RUN_TYPE to summary or detail"
+  fi
+fi
+
+if [ $KOKKOS_RUN_CGSOVLE == 'yes' ]; then
+  # Switch to the example directory
+  cd $KOKKOS_EXAMPLES_SOURCE_DIR/cgsolve || exit 1
+
+  # The example runs both an OpenMP target version of cgsolve and a version using the Kokkos library
+  # with the OpenMP target backend
+  ./cgsolve.ompt 200
+  
 fi
