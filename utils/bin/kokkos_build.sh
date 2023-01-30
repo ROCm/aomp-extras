@@ -50,7 +50,7 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 # Per default (for now) we want to use release 3.7.00 to establish a working baseline.
-KOKKOS_TAG=${_KOKKOS_TAG_:-3.7.00}
+KOKKOS_TAG=${_KOKKOS_TAG_:-3.7.01}
 # For development we also want to pull-in (most recent) devel
 KOKKOS_BRANCH=${_KOKKOS_BRANCH_:-develop}
 KOKKOS_SHA=7c76889 # This is pretty old
