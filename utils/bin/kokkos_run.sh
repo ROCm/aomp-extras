@@ -49,7 +49,7 @@ fi
 
 if [[ "$AOMP" =~ "opt" ]]; then
   # xargs trims the string off whitespaces
-  export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
+  export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   print_info "Set AOMP_GPU with rocminfo: $DETECTED_GPU"
 else
   print_info "Set AOMP_GPU with offload-arch."
@@ -136,6 +136,6 @@ if [ $KOKKOS_RUN_CGSOVLE == 'yes' ]; then
 
   # The example runs both an OpenMP target version of cgsolve and a version using the Kokkos library
   # with the OpenMP target backend
-  ./cgsolve.ompt 200
-  
+  # We execute an increased problem size and require higher precision to provoke longer runtimes.
+  ./cgsolve.ompt 400 300 0.000000001 
 fi
