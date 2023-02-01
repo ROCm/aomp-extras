@@ -317,7 +317,7 @@ echo
 print_info "Starting build ..."
 
 print_info make -j$NUM_THREADS
-CCC_OVERRIDE_OPTIONS="--O3 +-O2" make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
+make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
 
 if [ $? != 0 ] ; then
    print_error "ERROR in Kokkos build"

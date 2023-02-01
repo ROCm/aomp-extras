@@ -38,9 +38,9 @@ function print_error() {
 
   echo "[Error]: $toPrint"
 }
-echo "$AOMP"
+
 AOMP="${AOMP:-_AOMP_INSTALL_DIR_}"
-echo "$AOMP"
+
 if [ ! -d $AOMP ] ; then
    print_error "AOMP is not installed in ${AOMP}. Please set the environment variable."
    exit 1
@@ -50,12 +50,18 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_EXAMPLES_SOURCE_DIR=${KOKKOS_EXAMPLES_SOURCE_DIR:-$GIT_DIR/kokkos-openmptarget-examples}
 KOKKOS_EXAMPLES_REPO=https://github.com/kokkos/kokkos-openmptarget-examples.git
-
+NUM_THREADS=${NUM_THREADS:-8}
 
 COMPILERNAME_TO_USE=${_COMPILER_TO_USE_:-clang++}
 AOMP_VERSION=$($AOMP/bin/${COMPILERNAME_TO_USE} --version | head -n 1)
 
 cd $GIT_DIR || exit 1
+
+if [ "$1" == "clean" ]; then
+  print_info "Removing $KOKKOS_EXAMPLES_SOURCE_DIR"
+  rm -rf $KOKKOS_EXAMPLES_SOURCE_DIR
+  exit 0
+fi
 
 # Get the source code
 git clone $KOKKOS_EXAMPLES_REPO
@@ -75,7 +81,7 @@ cmd="PATH=$AOMP/bin:$PATH CXX=clang++ make KOKKOS_PATH=$KOKKOS_SOURCE_DIR arch=M
 
 print_info "$cmd"
 
-PATH=$AOMP/bin:$PATH CXX=clang++ make KOKKOS_PATH=$KOKKOS_SOURCE_DIR arch=MI250x backend=ompt comp=rocmclang
+PATH=$AOMP/bin:$PATH CXX=clang++ make KOKKOS_PATH=$KOKKOS_SOURCE_DIR arch=MI250x backend=ompt comp=rocmclang -j$NUM_THREADS
 #OFFLOAD_FLAGS='-ffast-math -fopenmp-target-fast'
 
 
