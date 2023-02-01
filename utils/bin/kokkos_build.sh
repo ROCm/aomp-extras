@@ -23,7 +23,7 @@
 #                   This will build kokkos in directory $HOME/kokkos_build.<GPUNAME>
 #
 #
-#  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+#  Written by Greg Rodgers  Gregory.Rodgers@amd.com, Jan-Patrick Lehr JanPatrick.Lehr@amd.com
 #
 PROGVERSION="X.Y-Z"
 #
@@ -62,14 +62,14 @@ COMPILERNAME_TO_USE=${_COMPILER_TO_USE_:-clang++}
 
 if [[ "$AOMP" =~ "opt" ]]; then
   # xargs trims the string off whitespaces
-  export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
+  export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   print_info "Set AOMP_GPU with rocminfo: $DETECTED_GPU"
   #print_info "Set AOMP_GPU with rocm_agent_enumerator.
   #export DETECTED_GPU=$($AOMP/../bin/rocm_agent_enumerator | grep -m 1 -E gfx[^0]{1}.{2})
 else
   print_info "Set AOMP_GPU with offload-arch."
   if [ -a $AOMP/bin/rocminfo ]; then
-    export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
+    export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   else
     export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
   fi
