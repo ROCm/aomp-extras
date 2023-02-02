@@ -23,7 +23,7 @@
 #                   This will build kokkos in directory $HOME/kokkos_build.<GPUNAME>
 #
 #
-#  Written by Greg Rodgers  Gregory.Rodgers@amd.com
+#  Written by Greg Rodgers  Gregory.Rodgers@amd.com, Jan-Patrick Lehr JanPatrick.Lehr@amd.com
 #
 PROGVERSION="X.Y-Z"
 #
@@ -50,7 +50,7 @@ GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 # Per default (for now) we want to use release 3.7.00 to establish a working baseline.
-KOKKOS_TAG=${_KOKKOS_TAG_:-3.7.00}
+KOKKOS_TAG=${_KOKKOS_TAG_:-3.7.01}
 # For development we also want to pull-in (most recent) devel
 KOKKOS_BRANCH=${_KOKKOS_BRANCH_:-develop}
 KOKKOS_SHA=7c76889 # This is pretty old
@@ -62,14 +62,14 @@ COMPILERNAME_TO_USE=${_COMPILER_TO_USE_:-clang++}
 
 if [[ "$AOMP" =~ "opt" ]]; then
   # xargs trims the string off whitespaces
-  export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
+  export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   print_info "Set AOMP_GPU with rocminfo: $DETECTED_GPU"
   #print_info "Set AOMP_GPU with rocm_agent_enumerator.
   #export DETECTED_GPU=$($AOMP/../bin/rocm_agent_enumerator | grep -m 1 -E gfx[^0]{1}.{2})
 else
   print_info "Set AOMP_GPU with offload-arch."
   if [ -a $AOMP/bin/rocminfo ]; then
-    export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
+    export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   else
     export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
   fi
@@ -317,7 +317,7 @@ echo
 print_info "Starting build ..."
 
 print_info make -j$NUM_THREADS
-CCC_OVERRIDE_OPTIONS="--O3 +-O2" make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
+make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
 
 if [ $? != 0 ] ; then
    print_error "ERROR in Kokkos build"
