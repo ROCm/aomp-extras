@@ -87,8 +87,8 @@ KOKKOS_EXAMPLES_SOURCE_DIR=${KOKKOS_EXAMPLES_SOURCE_DIR:-$GIT_DIR/kokkos-openmpt
 KOKKOS_RUN_UNIT_TEST='no'
 KOKKOS_RUN_CGSOVLE='no'
 
-# We also support summary and detail execution
-KOKKOS_RUN_TYPE='summary'
+# We support summary and detail execution
+KOKKOS_RUN_TYPE=${KOKKOS_RUN_TYPE:-summary}
 
 if [ "$#" -eq 0 ]; then
   print_error "Please indicate what to run 'unittest', 'cgsolve'"
@@ -106,14 +106,17 @@ done
 
 
 if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
+  initialDir="$PWD"
+
   cd $KOKKOS_BUILD_DIR || exit 1
   
-  cd core/unit_test
+  cd core/unit_test || exit 1
   
   # Run the top-level summary version of the tests
   if [ "$KOKKOS_RUN_TYPE" == "summary" ]; then
     OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
     print_info "For more details, please set KOKKOS_RUN_TYPE to 'detail'"
+ 
   elif [ "$KOKKOS_RUN_TYPE" == "detail" ]; then
   
     declare -a EXE_FILES
@@ -123,8 +126,17 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
     done
     
     for UT in "${EXE_FILES[@]}"; do
-      ${UT}
+      fName=${UT/KokkosCore/RESULT}
+      ${UT} --gtest_output=json:$PWD/${fName}.json
     done
+
+    if [ ! -z "$AOMP_CI_ACCUMULATOR" ]; then
+      tmpResFile=accuResult.ext
+      find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} {} ${tmpResFile} \;
+      cp ${tmpResFile} ${initialDir}/accumulatedResults.ext
+      rm ${tmpResFile}
+    fi
+
   else
     print_error "Please set KOKKOS_RUN_TYPE to summary or detail"
   fi
