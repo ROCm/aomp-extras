@@ -140,8 +140,9 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
     if [ ! -z "$AOMP_CI_ACCUMULATOR" ]; then
       tmpResFile=accuResult.ext
       find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} {} ${tmpResFile} \;
-      cp ${tmpResFile} ${initialDir}/accumulatedResults.ext
-      rm ${tmpResFile}
+      cp ${tmpResFile}-perf.ext ${initialDir}/accumulatedResults-perf.ext
+      cp ${tmpResFile}-corr.ext ${initialDir}/accumulatedResults-corr.ext
+      rm ${tmpResFile}-corr.ext ${tmpResFile}-perf.ext
     fi
 
   else

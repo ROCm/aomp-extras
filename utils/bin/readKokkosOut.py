@@ -95,8 +95,15 @@ def transform(args) -> None:
   failfile = args.failfile
   snapshot = args.snapshot
 
-  with open(outfilename, 'a') as theFile:
-    header = '#type: correctness'
+  perfFormatOutFile = outfilename+'-perf.ext'
+  corrFormatOutFile = outfilename+'-corr.ext'
+
+  with open(perfFormatOutFile, 'a') as theFile:
+    header = '#Kokkos Tests\n#Test|Group|Label|Dir|Data|Unit|Error|[Date]\n# type: performance\n'
+    theFile.write(header)
+
+  with open(corrFormatOutFile, 'a') as theFile:
+    header = '#Kokkos Tests\n#Test|Group|Label||Data||Error|[Date]\n# type: correctness\n'
     theFile.write(header)
 
   '''
@@ -127,11 +134,11 @@ def transform(args) -> None:
 
       # Append the results to the file that is used for email
       # This is the percentage overview of passing rate
-      appendSuiteResultsToCODResultFile(results, outfilename)
+      appendSuiteResultsToCODResultFile(results, perfFormatOutFile)
 
       # Given that a snapshot identifier and a fail-file was given, perform a comparison of the results
       # w.r.t. that file and attach the test cases to the final ext result file.
-      compareFailsWithBaseline(suite['testsuite'], outfilename, failfile, snapshot)
+      compareFailsWithBaseline(suite['testsuite'], corrFormatOutFile, failfile, snapshot)
 
 
 if __name__ == '__main__':
