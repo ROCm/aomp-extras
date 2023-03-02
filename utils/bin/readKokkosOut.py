@@ -51,8 +51,8 @@ def appendSingleResultToCODResultFile(TCName : str, outfile : str, PassFailRegre
   2 -- regression
   '''
   line = 'Kokkos | TestCase | '
-  line += TCName + ' | '
-  line += str(PassFailRegression) + ' | '
+  line += TCName + ' || '
+  line += str(PassFailRegression) + ' || '
   line += ' Yes ' if PassFailRegression > 0 else ' | '
   line += getToday() + '\n'
   line = line.replace(' ', '')
@@ -94,6 +94,10 @@ def transform(args) -> None:
   outfilename = args.outfilename
   failfile = args.failfile
   snapshot = args.snapshot
+
+  with open(outfilename, 'a') as theFile:
+    header = '#type: correctness'
+    theFile.write(header)
 
   '''
   The function takes a filename to a gtest JSON output file as argument and transforms the content

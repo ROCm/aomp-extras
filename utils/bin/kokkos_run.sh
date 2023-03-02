@@ -90,6 +90,9 @@ KOKKOS_RUN_CGSOVLE='no'
 # We support summary and detail execution
 KOKKOS_RUN_TYPE=${KOKKOS_RUN_TYPE:-summary}
 
+# For the CI runs we want to move the summary to the CI folder
+KOKKOS_EXRACT_FILE_LOCATION=${AOMP_OPENMP_CI:-''}
+
 if [ "$#" -eq 0 ]; then
   print_error "Please indicate what to run 'unittest', 'cgsolve'"
   exit 1
@@ -106,7 +109,11 @@ done
 
 
 if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
-  initialDir="$PWD"
+  if [ $KOKKOS_EXRACT_FILE_LOCATION ]; then
+    initialDir=$PWD
+  else
+    initialDir=$KOKKOS_EXTRACT_FILE_LOCATION
+  fi
 
   cd $KOKKOS_BUILD_DIR || exit 1
   
@@ -132,7 +139,7 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
 
     if [ ! -z "$AOMP_CI_ACCUMULATOR" ]; then
       tmpResFile=accuResult.ext
-      find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} {} ${tmpResFile} \;
+      find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} {} ${tmpResFile} \;
       cp ${tmpResFile} ${initialDir}/accumulatedResults.ext
       rm ${tmpResFile}
     fi
