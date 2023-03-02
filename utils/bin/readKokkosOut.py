@@ -71,14 +71,12 @@ def compareFailsWithBaseline(JsonSuite, outfile : str, failfile: str, snapshot :
   expectedPassFails = getExpectedFails(failfile, snapshot)
 
   # Identify the exact tests that didn't work for the different reports
-  # TODO: We currently ignore the 'classname', e.g., openmp., from the Kokkos
-  # output. This may come back to us, once there are tests with the same
-  # name in different test suites
   for t in JsonSuite:
     PFR = 0
+    qualName = t['classname'] + '.' + t['name']
     if 'failures' in t:
       # This test case did not succeed. Check if this is known, or a regression
-      if not t['name'] in expectedPassFails:
+      if not qualName in expectedPassFails:
         # Regression
         print('Found a regression')
         PFR = 2
@@ -88,7 +86,7 @@ def compareFailsWithBaseline(JsonSuite, outfile : str, failfile: str, snapshot :
         PFR = 1
       
     # No failure occured
-    appendSingleResultToCODResultFile(t['name'], outfile, PFR)
+    appendSingleResultToCODResultFile(qualName, outfile, PFR)
 
 
 def transform(args) -> None:
