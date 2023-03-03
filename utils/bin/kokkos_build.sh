@@ -81,14 +81,21 @@ AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
 # Determine if AOMP_GPU is supported in KOKKOS. Currently looks for AMD only.
 kokkos_regex="gfx(.*)"
-supported_arch="900 906 908 90a"
+supported_arch_vega="900 906 908 90a"
+supported_arch_navi="1030 1100"
 declare -A arch_array
-print_info "Supported KOKKOS GFX: $supported_arch"
+print_info "Supported KOKKOS GFX: $supported_arch_vega $supported_arch_navi"
 
 # Store arch in associative array
-for arch in $supported_arch; do
+for arch in $supported_arch_vega; do
   # Add name used in Kokkos CMake for Architecture
   arch_str="VEGA${arch^^}"
+  arch_array[$arch]=$arch_str
+done
+
+for arch in $supported_arch_navi; do
+  # Add name used in Kokkos CMake for Architecture
+  arch_str="NAVI${arch^^}"
   arch_array[$arch]=$arch_str
 done
 
