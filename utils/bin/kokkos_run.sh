@@ -67,15 +67,16 @@ AOMP_GPU=${AOMP_GPU:-$DETECTED_GPU}
 
 GIT_DIR=${GIT_DIR:-$HOME/git}
 KOKKOS_BUILD_PREFIX=${KOKKOS_BUILD_PREFIX:-$HOME}
+KOKKOS_TAG=${_KOKKOS_TAG_:-'NA'}
 
 if [ "$1" == "hip" ] ; then
    kokkos_backend="hip"
-   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_build_hip.$AOMP_GPU}
-   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_hip.$AOMP_GPU}
+   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_build_hip.$AOMP_GPU}
+   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_hip.$AOMP_GPU}
 else
    kokkos_backend="openmp"
-   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_build_omp.$AOMP_GPU}
-   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_omp.$AOMP_GPU}
+   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_build_omp.$AOMP_GPU}
+   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_omp.$AOMP_GPU}
 fi
 
 KOKKOS_EXAMPLES_SOURCE_DIR=${KOKKOS_EXAMPLES_SOURCE_DIR:-$GIT_DIR/kokkos-openmptarget-examples}
@@ -91,7 +92,7 @@ KOKKOS_RUN_CGSOVLE='no'
 KOKKOS_RUN_TYPE=${KOKKOS_RUN_TYPE:-summary}
 
 # For the CI runs we want to move the summary to the CI folder
-KOKKOS_EXTRACT_FILE_LOCATION=${AOMP_OPENMP_CI:-''}
+KOKKOS_EXTRACT_FILE_LOCATION=${KOKKOS_EXTRACT_OUTPUT:-$AOMP_OPENMP_CI}
 
 if [ "$#" -eq 0 ]; then
   print_error "Please indicate what to run 'unittest', 'cgsolve'"
@@ -128,20 +129,21 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
   
     declare -a EXE_FILES
     for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
-      echo "$EXE"
+      echo "AOMPCI LOG: $PWD / $EXE"
       EXE_FILES+=("$EXE")
     done
-    
+
     for UT in "${EXE_FILES[@]}"; do
       fName=${UT/KokkosCore/RESULT}
-      ${UT} --gtest_output=json:$PWD/${fName}.json
+      OMP_NUM_THREADS=2 timeout 5m ${UT} --gtest_output=json:$PWD/${fName}.json
     done
 
+    # The AOMP_CI_ACCUMULATOR is a Python script to read the resulting GTest json files and transform them into extract-format files
     if [ ! -z "$AOMP_CI_ACCUMULATOR" ]; then
-      tmpResFile=accuResult.ext
+      tmpResFile=accuResult
       find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} {} ${tmpResFile} \;
-      cp ${tmpResFile}-perf.ext ${initialDir}/accumulatedResults-perf.ext
-      cp ${tmpResFile}-corr.ext ${initialDir}/accumulatedResults-corr.ext
+      cp ${tmpResFile}-perf.ext ${initialDir}/accumulatedResults-pass-rate-${KOKKOS_TAG}.ext
+      cp ${tmpResFile}-corr.ext ${initialDir}/accumulatedResults-corr-${KOKKOS_TAG}.ext
       rm ${tmpResFile}-corr.ext ${tmpResFile}-perf.ext
     fi
 
