@@ -116,6 +116,7 @@ fi
 
 print_info "Using configuration"
 print_info "AOMP_GPU    = $AOMP_GPU"
+print_info "KOKKOS_TAG  = $KOKKOS_TAG"
 print_info "KOKKOS_ARCH = $KOKKOS_ARCH"
 print_info "AOMP        = $AOMP"
 print_info "AOMP Version = $AOMP_VERSION"
@@ -135,12 +136,12 @@ fi
 
 if [ "$1" == "hip" ] ; then
    kokkos_backend="hip"
-   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_build_hip.$AOMP_GPU}
-   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_hip.$AOMP_GPU}
+   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_build_hip.$AOMP_GPU}
+   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_hip.$AOMP_GPU}
 else
    kokkos_backend="openmp"
-   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_build_omp.$AOMP_GPU}
-   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos_omp.$AOMP_GPU}
+   KOKKOS_BUILD_DIR=${KOKKOS_BUILD_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_build_omp.$AOMP_GPU}
+   KOKKOS_INSTALL_DIR=${KOKKOS_INSTALL_DIR:-$KOKKOS_BUILD_PREFIX/kokkos-${KOKKOS_TAG}_omp.$AOMP_GPU}
 fi
 
 # Clean install, build and source directories
@@ -155,7 +156,7 @@ if [ "$1" == "clean" ] ; then
   exit 0
 fi
 
-# This patch is required for Debug builds of Clang/LLVM for a Clang assertion failing
+# This patch is required for builds of Clang/LLVM w/ assertions enabled for a Clang assertion failing
 # otherwise: Non-trivially copyable data types used by Kokkos.
 function patchkokkos(){
 patchfile1=/tmp/kokkos1_$$.patch
@@ -293,6 +294,7 @@ else
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
     -D CMAKE_CXX_COMPILER=$AOMP/bin/${COMPILERNAME_TO_USE}
+    #-D CMAKE_CXX_FLAGS="-mllvm -time-passes -mllvm -openmp-opt-max-iterations=2"
     -D CMAKE_CXX_FLAGS="-mllvm -time-passes"
     -D CMAKE_VERBOSE_MAKEFILE=ON
     -D Kokkos_ARCH_NATIVE=ON
@@ -324,7 +326,7 @@ echo
 print_info "Starting build ..."
 
 print_info make -j$NUM_THREADS
-make -j$NUM_THREADS 2>&1 | tee kokkos-build.log
+make --output-sync=recurse -j$NUM_THREADS 2>&1 | tee kokkos-build.log
 
 if [ $? != 0 ] ; then
    print_error "ERROR in Kokkos build"
