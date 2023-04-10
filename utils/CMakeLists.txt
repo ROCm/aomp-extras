@@ -165,7 +165,6 @@ if(${AOMP_STANDALONE_BUILD})
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
      ${CMAKE_CURRENT_BINARY_DIR}/aompversion
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
-     ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
      ${CMAKE_CURRENT_BINARY_DIR}/clang-ocl
@@ -177,7 +176,6 @@ else()
      ${CMAKE_CURRENT_BINARY_DIR}/mymcpu
      ${CMAKE_CURRENT_BINARY_DIR}/aompcc
      ${CMAKE_CURRENT_SOURCE_DIR}/bin/mygpu
-     ${CMAKE_CURRENT_SOURCE_DIR}/bin/openmpi_set_cu_mask
      ${CMAKE_CURRENT_BINARY_DIR}/gpurun
    DESTINATION "${DEVEL_PACKAGE}${CMAKE_INSTALL_BINDIR}")
 endif()
