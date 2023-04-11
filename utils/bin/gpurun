@@ -39,7 +39,6 @@
 #    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
 #
 #  TODO:
-#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
 #  - Warn if HSA_CU_MASK is preset and use that instead of calculated MASK.
 #    Note that rocminfo does not recognize ROCR_VISIBLE_DEVICES or HSA_CU_MASK.
 #  - Add support for cuda.
@@ -358,23 +357,28 @@ rm $_tfile
 #         devices not starting at 0.
 [[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_PROCS=$_CUs_per_rplace
+
+#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
+[[ $_number_of_rplaces_per_GPU != 1 ]] && export GPU_MAX_HW_QUEUES=1
+
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
-   [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
+   if [ "$GPURUN_VERBOSE" == "1" ] || [ "$GPURUN_VERBOSE" == "" ] ; then
       printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE >&2
-   [ "$GPURUN_VERBOSE" == "2" ] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n "  \
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd" >&2
+   fi
+   if [ "$GPURUN_VERBOSE" == "2" ] ; then
+      printf "RANK:%02d D:%d PCI:%5s NN:%d \n  taskset cmd: %s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd" >&2
+   fi
    $_taskset_cmd $*
 else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
-   [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "" ]] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" \ 
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask >&2
-   [ "$GPURUN_VERBOSE" == "2" ] && \
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" \
-         $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd" &>2
+   if [ "$GPURUN_VERBOSE" == "1" ] || [ "$GPURUN_VERBOSE" == "" ] ; then
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask >&2
+   fi
+   if [ "$GPURUN_VERBOSE" == "2" ] ; then
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd" &>2
+   fi
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
 fi
