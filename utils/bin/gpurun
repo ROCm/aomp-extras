@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright(C) 2021 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright(C) 2023 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -132,7 +132,7 @@ function usage(){
      GPU is available for the process and OMPX_TARGET_TEAM_PROCS is set to
      the total number of CUs on the GPU.
 
-   Copyright (c) 2022  ADVANCED MICRO DEVICES, INC.
+   Copyright (c) 2023  ADVANCED MICRO DEVICES, INC.
 
 EOF
   exit 0
@@ -358,8 +358,12 @@ rm $_tfile
 [[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
 export OMPX_TARGET_TEAM_PROCS=$_CUs_per_rplace
 
-#  - Limit HSA queues with GPU_MAX_HW_QUEUES when multiple ranks per GPU
-[[ $_number_of_rplaces_per_GPU != 1 ]] && export GPU_MAX_HW_QUEUES=1
+#  - Limit HSA queues when multiple ranks per GPU
+if [ $_number_of_rplaces_per_GPU != 1 ] ; then
+   # Only set these env controls if not set by caller
+   [[ -z "$GPU_MAX_HW_QUEUES" ]] && export GPU_MAX_HW_QUEUES=1
+   [[ -z "$LIBOMPTARGET_AMDGPU_NUM_HSA_QUEUES" ]] && export LIBOMPTARGET_AMDGPU_NUM_HSA_QUEUES=1
+fi
 
 if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
    # Do not set HSA_CU_MASK when using all CUs
