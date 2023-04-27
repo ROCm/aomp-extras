@@ -294,7 +294,7 @@ else
     -D CMAKE_CXX_EXTENSIONS=OFF
     -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR
     -D CMAKE_CXX_COMPILER=$AOMP/bin/${COMPILERNAME_TO_USE}
-    #-D CMAKE_CXX_FLAGS="-mllvm -time-passes -mllvm -openmp-opt-max-iterations=2"
+    #-D CMAKE_CXX_FLAGS="-mllvm -time-passes -mllvm -openmp-opt-max-iterations=10"
     -D CMAKE_CXX_FLAGS="-mllvm -time-passes"
     -D CMAKE_VERBOSE_MAKEFILE=ON
     -D Kokkos_ARCH_NATIVE=ON

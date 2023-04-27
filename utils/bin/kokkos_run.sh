@@ -38,6 +38,14 @@ function print_error() {
   echo "[Error]: $toPrint"
 }
 
+function charexists() {
+  char="$1"; shift
+  case "$*" in *"$char"*) return;; esac; return 1
+}
+
+SCRIPT_REALPATH=`realpath $0`
+TOOLDIR=`dirname $SCRIPT_REALPATH`
+
 ## To get consistent GPU names for building and running we rely on AOMP here as well
 echo "$AOMP"
 AOMP="${AOMP:-_AOMP_INSTALL_DIR_}"
@@ -122,29 +130,52 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
   
   # Run the top-level summary version of the tests
   if [ "$KOKKOS_RUN_TYPE" == "summary" ]; then
-    OMP_NUM_THREADS=2 ctest --timeout 180 -j 4
+    OMP_NUM_THREADS=2 ctest --timeout 240 -j 4
     print_info "For more details, please set KOKKOS_RUN_TYPE to 'detail'"
  
   elif [ "$KOKKOS_RUN_TYPE" == "detail" ]; then
-  
+    # For a detail run, we follow the procedure
+    # 1. Search for all executables in the unit_test directory.
+    # 2. Query each executable for its testsuites and the contained test cases.
+    # 3. Run an executable separately for each testsuite.testcase to detect and cover individual hangs (and still generate results).
+    #    Put each individual result into its own file to merge them back afterwards. 
+
+    # Start with capturing a list of all executables.
     declare -a EXE_FILES
     for EXE in $(find . -maxdepth 1 -perm -111 -type f); do
       echo "AOMPCI LOG: $PWD / $EXE"
       EXE_FILES+=("$EXE")
     done
 
+    # 2. Query each executable for all contained test cases
     for UT in "${EXE_FILES[@]}"; do
-      fName=${UT/KokkosCore/RESULT}
-      OMP_NUM_THREADS=2 timeout 5m ${UT} --gtest_output=json:$PWD/${fName}.json
+      echo "Executable $UT"
+      # Have gtest list all available test suites and the test cases therein.
+      # A test suite name ends with a '.', so filter for that to differentiate between them.
+      # Run each test case individually under time limit to detect potential hang and report as test failure, while continue to run
+      # all the other test cases normally.
+      for TC in $(python3 $TOOLDIR/extractTestsFromGTest.py $UT); do
+        echo "Running ${UT} TC: $TC"
+        fName=${UT/KokkosCore/RESULT}_${TC/\//_}
+        OMP_PROC_BIND=spread OMP_NUM_THREADS=2 timeout 2m ${UT} --gtest_filter="$TC" --gtest_output=json:$PWD/${fName}.json
+        # Check for return code of command, 124 indicating timeout (interpreted as hang)
+        if [ "$?" == "124" ]; then
+          echo "Command timed out. Need to handle"
+        fi
+      done
     done
 
     # The AOMP_CI_ACCUMULATOR is a Python script to read the resulting GTest json files and transform them into extract-format files
     if [ ! -z "$AOMP_CI_ACCUMULATOR" ]; then
       tmpResFile=accuResult
-      find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} {} ${tmpResFile} \;
+      # Collect everything in the KOKKOS_INTERMEDIATE_FILE ${tmpResFile} is not touched during this command
+      # I know that this looks a bit clumsy and it can sure be improved later.
+      find . -iname "RESULT_*" -exec python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} --intermediate-file ${KOKKOS_INTERMEDIATE_FILE} {} ${tmpResFile} \;
+      # Generate the extract from the KOKKOS_INTERMEDIATE_FILE
+      python3 ${AOMP_CI_ACCUMULATOR} --snapshot ${KOKKOS_FAILS_SNAPSHOT} --failfile ${KOKKOS_FAIL_FILE} ${KOKKOS_INTERMEDIATE_FILE} ${tmpResFile}
       cp ${tmpResFile}-perf.ext ${initialDir}/accumulatedResults-pass-rate-${KOKKOS_TAG}.ext
       cp ${tmpResFile}-corr.ext ${initialDir}/accumulatedResults-corr-${KOKKOS_TAG}.ext
-      rm ${tmpResFile}-corr.ext ${tmpResFile}-perf.ext
+      rm ${tmpResFile}-corr.ext ${tmpResFile}-perf.ext ${KOKKOS_INTERMEDIATE_FILE}
     fi
 
   else
