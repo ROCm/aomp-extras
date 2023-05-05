@@ -100,7 +100,7 @@ KOKKOS_RUN_CGSOVLE='no'
 KOKKOS_RUN_TYPE=${KOKKOS_RUN_TYPE:-summary}
 
 # For the CI runs we want to move the summary to the CI folder
-KOKKOS_EXTRACT_FILE_LOCATION=${KOKKOS_EXTRACT_OUTPUT:-$AOMP_OPENMP_CI}
+KOKKOS_EXTRACT_FILE_LOCATION=${KOKKOS_EXTRACT_DIRECTORY:-$AOMP_OPENMP_CI}
 
 if [ "$#" -eq 0 ]; then
   print_error "Please indicate what to run 'unittest', 'cgsolve'"
