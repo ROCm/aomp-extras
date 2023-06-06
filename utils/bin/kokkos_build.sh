@@ -39,15 +39,15 @@ function print_error() {
   echo "[Error]: $toPrint"
 }
 echo "$AOMP"
-AOMP="${AOMP:-_AOMP_INSTALL_DIR_}"
+AOMP="${AOMP:-AOMP_INSTALL_DIR}"
 echo "$AOMP"
 if [ ! -d $AOMP ] ; then
    print_error "AOMP is not installed in ${AOMP}. Please set the environment variable."
    exit 1
 fi
 
-GIT_DIR=${GIT_DIR:-$HOME/git}
-KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$GIT_DIR/kokkos}
+KOKKOS_SOURCE_PREFIX=${KOKKOS_SOURCE_PREFIX:-$HOME/git}
+KOKKOS_SOURCE_DIR=${KOKKOS_SOURCE_DIR:-$KOKKOS_SOURCE_PREFIX/kokkos}
 KOKKOS_URL=https://github.com/kokkos/kokkos.git
 # Per default (for now) we want to use release 3.7.00 to establish a working baseline.
 KOKKOS_TAG=${_KOKKOS_TAG_:-3.7.01}
@@ -118,6 +118,7 @@ print_info "Using configuration"
 print_info "AOMP_GPU    = $AOMP_GPU"
 print_info "KOKKOS_TAG  = $KOKKOS_TAG"
 print_info "KOKKOS_ARCH = $KOKKOS_ARCH"
+print_info "KOKKOS_SOURCE = $KOKKOS_SOURCE_DIR"
 print_info "AOMP        = $AOMP"
 print_info "AOMP Version = $AOMP_VERSION"
 
@@ -200,17 +201,17 @@ EOF
  rm $patchfile1
 }
 
-mkdir -p $GIT_DIR
-cd $GIT_DIR
+mkdir -p $KOKKOS_SOURCE_PREFIX
+cd $KOKKOS_SOURCE_PREFIX || exit 1
 if [ ! -d $KOKKOS_SOURCE_DIR ] ; then
-   print_info "git clone $KOKKOS_URL"
-   git clone $KOKKOS_URL kokkos
+   print_info "git clone $KOKKOS_URL $KOKKOS_SOURCE_DIR"
+   git clone $KOKKOS_URL $KOKKOS_SOURCE_DIR
    if [ $? != 0 ] ; then
       echo
       print_error "ERROR: Could not git clone $KOKKOS_URL "
       exit 1
    fi
-   cd $KOKKOS_SOURCE_DIR
+   cd $KOKKOS_SOURCE_DIR || exit 1
    print_info "Checking out Kokkos branch: ${KOKKOS_BRANCH}"
    git checkout $KOKKOS_BRANCH
    if [ $? != 0 ] ; then
