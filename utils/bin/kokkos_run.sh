@@ -60,10 +60,11 @@ if [[ "$AOMP" =~ "opt" ]]; then
   export DETECTED_GPU=$($AOMP/../bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   print_info "Set AOMP_GPU with rocminfo: $DETECTED_GPU"
 else
-  print_info "Set AOMP_GPU with offload-arch."
   if [ -a $AOMP/bin/rocminfo ]; then
-    export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
+    print_info "Set AOMP_GPU with rocminfo"
+    export DETECTED_GPU=$($AOMP/bin/rocminfo | grep -m 1 -E gfx[^0]{1}.{2} | awk '{print $2}')
   else
+    print_info "Set AOMP_GPU with offload-arch."
     export DETECTED_GPU=$($AOMP/bin/offload-arch | grep -m 1 -E gfx[^0]{1}.{2})
   fi
 fi
@@ -115,6 +116,8 @@ while (( "$#" )); do
   fi
   shift
 done
+
+print_info "Selecting what to run unit-test ($KOKKOS_RUN_UNIT_TEST) or cgsolve ($KOKKOS_RUN_CGSOVLE)"
 
 
 if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
@@ -184,11 +187,18 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
 fi
 
 if [ $KOKKOS_RUN_CGSOVLE == 'yes' ]; then
+  print_info "Running performance cgsolve"
   # Switch to the example directory
   cd $KOKKOS_EXAMPLES_SOURCE_DIR/cgsolve || exit 1
 
   # The example runs both an OpenMP target version of cgsolve and a version using the Kokkos library
   # with the OpenMP target backend
   # We execute an increased problem size and require higher precision to provoke longer runtimes.
+  print_info "Running default (small) problem"
+  ./cgsolve.ompt
+
+  echo ""
+
+  print_info "Running increased (large) problem"
   ./cgsolve.ompt 400 300 0.000000001 
 fi
