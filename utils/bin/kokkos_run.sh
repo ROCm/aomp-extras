@@ -150,6 +150,9 @@ if [ $KOKKOS_RUN_UNIT_TEST == 'yes' ]; then
       EXE_FILES+=("$EXE")
     done
 
+    # Rmove previous test results
+    find . -iname "RESULT_*" -delete
+
     # 2. Query each executable for all contained test cases
     for UT in "${EXE_FILES[@]}"; do
       echo "Executable $UT"
