@@ -311,7 +311,7 @@ if [ $CUDACLANG ] ; then
    CMD_CLC=${CMD_CLC:-clang++ -c -std=c++11 $CUOPTS $INCLUDES}
 else
   INCLUDES="-I ${DEVICELIB}/include ${INCLUDES}"
-  clangversion=$($AOMP/bin/clang --version | grep -oP '(?<=clang version )[0-9.]+')
+  clangversion=$($AOMP/bin/clang --version | grep -oP '(?<=clang version )[0-9]+')
   CLANGDIR="$AOMP"/lib/clang/"$clangversion"
   if [ $CL12 ] ; then
      CMD_CLC=${CMD_CLC:-clang --rocm-path=$AOMPHIP -c -mcpu=$LC_MCPU -fvisibility=hidden -emit-llvm -target $TARGET_TRIPLE -x cl -D__AMD__=1 -D__${LC_MCPU}__=1  -D__OPENCL_VERSION__=120 -D__IMAGE_SUPPORT__=1 -O3 -m64 -cl-kernel-arg-info -nogpulib -cl-std=CL1.2 -mllvm -amdgpu-early-inline-all -Xclang -cl-ext=+cl_khr_fp64,+cl_khr_global_int32_base_atomics,+cl_khr_global_int32_extended_atomics,+cl_khr_local_int32_base_atomics,+cl_khr_local_int32_extended_atomics,+cl_khr_int64_base_atomics,+cl_khr_int64_extended_atomics,+cl_khr_3d_image_writes,+cl_khr_byte_addressable_store,+cl_khr_gl_sharing,+cl_amd_media_ops,+cl_amd_media_ops2,+cl_khr_subgroups -include $CLANGDIR/include/opencl-c.h $CLOPTS $LINKOPTS}
