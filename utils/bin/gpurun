@@ -188,6 +188,7 @@ if [ ! -d $AOMP ] ; then
 fi
 ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
 [ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../bin/rocminfo
+[ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../../bin/rocminfo
 if [ ! -f $ROCMINFO_BINARY ] ; then
    >&2 echo "ERROR: Could not find binary $ROCMINFO_BINARY"
    >&2 echo "       Please correct the installation of ROCM or AOMP"
