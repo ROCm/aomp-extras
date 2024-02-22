@@ -324,36 +324,47 @@ if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
    _mask="0x$_mask"
 fi
 
-# Get NUMANODE and cpuset for this GPU identified by BDFID
-_bdfid=${bdfids[$_device_num]}
-_bdfidstr=`echo "obase=16; $_bdfid" | bc | tr '[:upper:]' '[:lower:]'`
-if [ ${#_bdfidstr} == 3 ] ; then
-   _bdfidstrc="0${_bdfidstr:0:1}:${_bdfidstr:1:2}"
-else
-   _bdfidstrc="${_bdfidstr:0:2}:${_bdfidstr:2:2}"
-fi
-#NUMANODE=`lspci -vmm -s $_bdfidstrc | grep -m 1 NUMANode | cut -d":" -f2`
-NUMANODE=`cat /sys/bus/pci/devices/0000:$_bdfidstrc.0/numa_node`
-# Sometimes lscpu shows 0 for the node, when /sys/bus/pci/.. shows -1
-[[ $NUMANODE == -1 ]] && NUMANODE=0
-[[ "$NUMANODE" == "" ]] && NUMANODE=0
-_taskset_cmd="taskset -c "
-lscpu --extended=cpu,node >$_tfile
-while read _linepair ; do
-  _nn=`echo $_linepair | awk '{print $2}'`
-  if [ $_nn == $NUMANODE ]; then
-    _cpu=`echo $_linepair | awk '{print $1}'`
-    if [ $_notfirstitem ] ; then
-       _taskset_cmd+=",$_cpu"
-    else
-       _taskset_cmd+="$_cpu"
-       _notfirstitem=1
+# Scan amdgpu devs and store info (bdfid, cpus, and numande) in 3 arrays
+# indexed by _device_num. This is cleaner that parsing rocminfo bdfid.
+# Eventially we want to get rid of all rocminfo parsing.
+_sysdevdir="/sys/bus/pci/devices"
+_scanned_gpus=0
+_cpulist=()
+_long_bdfid=()
+_numanode=()
+for _devid in `ls $_sysdevdir` ; do
+  if [ -f $_sysdevdir/$_devid/device ] ; then
+    _driver_name=`cat $_sysdevdir/$_devid/uevent | grep DRIVER | awk '{print $1}'`
+    if [ ! -z $_driver_name ] ; then
+      if [ $_driver_name  == "DRIVER=amdgpu" ] ; then
+        _numa_node=`cat $_sysdevdir/$_devid/numa_node`
+        [ "$_numa_node" == "-1" ] && _numa_node=0
+        _this_cpulist=`cat $_sysdevdir/$_devid/local_cpulist`
+        _long_bdfid+=( $_devid )
+        _numanode+=( $_numa_node )
+        _cpulist+=( $_this_cpulist )
+        _scanned_gpus=$(( $_scanned_gpus + 1 ))
+      fi
     fi
   fi
-done < $_tfile
-rm $_tfile
+done
 
+if [ $_scanned_gpus != $_available_devices ] ; then
+   echo "ERROR: rocminfo shows a different number of GPUs than scan of /sys"
+   echo "       rocminfo devices:$_available_devices  scanned GPUS:$_scanned_gpus"
+   echo "       rocminfo binary: $ROCMINFO_BINARY"
+   echo "       Scanned dir: $_sysdevdir"
+   exit 1
+fi
+
+# retrieve scanned info
+_bdfidstrc=${_long_bdfid[$_device_num]}
+NUMANODE=${_numanode[$_device_num]}
+_taskset_cmd="taskset -c ${_cpulist[$_device_num]}"
+
+# If gpurun was not given command to execute, then don't run taskset_cmd
 [ "$*" == "" ] && _taskset_cmd=""
+
 #  FIXME: What if existing ROCR_VISIBLE_DEVICES has multiple non-sequential
 #         devices not starting at 0.
 [[ $_available_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_device_num
@@ -379,10 +390,10 @@ else
    # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
    export HSA_CU_MASK=0:$_mask
    if [ "$GPURUN_VERBOSE" == "1" ] || [ "$GPURUN_VERBOSE" == "" ] ; then
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask >&2
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:$_mask \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE >&2
    fi
    if [ "$GPURUN_VERBOSE" == "2" ] ; then
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:0:%s \n  taskset cmd: %s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE $_mask "$_taskset_cmd" &>2
+      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:$_mask \n  taskset cmd: %s \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd" >&2
    fi
    HSA_CU_MASK=0:$_mask \
    $_taskset_cmd $*
