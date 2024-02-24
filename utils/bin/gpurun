@@ -349,6 +349,12 @@ for _devid in `ls $_sysdevdir` ; do
   fi
 done
 
+if [ "$ROCR_VISIBLE_DEVICES" != "" ] ; then
+  if [ "$GPURUN_VERBOSE" != "0" ] ; then
+    echo "restricting scanned_devices due to eplicit ROCR_VISIBLE_DEVICES=$ROCR_VISIBLE_DEVICES"
+  fi
+  _scanned_gpus=$_available_devices
+fi
 if [ $_scanned_gpus != $_available_devices ] ; then
    echo "ERROR: rocminfo shows a different number of GPUs than scan of /sys"
    echo "       rocminfo devices:$_available_devices  scanned GPUS:$_scanned_gpus"
