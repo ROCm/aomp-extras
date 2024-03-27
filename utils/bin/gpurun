@@ -59,10 +59,10 @@ function usage(){
 /bin/cat 2>&1 <<"EOF"
 
    gpurun: Application process launch utility for GPUs.
-           This utility ensures the process will run on a single GPU.
-           It launches the application binary with the 'taskset' utility
-	   so the process only runs on CPU cores in the same NUMA domain
-	   as the selected GPU.
+           This utility ensures the process will enable a single GPU.
+           It launches the application binary with either the 'taskset'
+           or 'numactl' utility so the process only runs on CPU cores
+           in the same NUMA domain as the selected GPU.
            This utility sets environment variable ROCR_VISIBLE_DEVICES
 	   to the selected GPU ONLY if it was not already set by the
 	   callers environment AND the number of GPUs is not 1.
@@ -78,17 +78,24 @@ function usage(){
       mpirun -np <num ranks>  gpurun <executable> [ <executable args> ]
 
    Options:
-      -h        Print this help message and exit
-      -s        suppress output, often useful in benchmarking
+      -h   Print this help message and exit
+      -s   suppress output, often useful in benchmarking
+      -q   suppress output, quiet, alias of -s, same as GPURUN_VERBOSE=0
+      -v   Verbose output, same as GPURUN_VERBOSE=2
+      -m   use numactl membind to CPUs in same NUMA domain. Note: Allocation
+           fails when not enough memory available on these nodes.
+      -l   use numactl localalloc to CPUs in same NUMA domain. Note: If
+           memory cannot be allocated, alloc falls back to other nodes.
+
       --version Print version of gpurun and exit
 
    Optional Input environment variables:
       GPURUN_VERBOSE
         "" (or unset) print 1 line trace to stdout, format:
            RANK:<rank> D:<dev-id> PCI:<pci-id> NN:<numanode> <CU mask if set>
-        0:  for silent operation, nothing is added to stdout
-        1:  prints trace and other diagnostics to stdout
-        2:  prints trace, other diagnostics, and taskset command
+        0:  for silent operation, nothing is added
+        1:  prints trace and other diagnostics
+        2:  prints trace, other diagnostics, and the process launch command
       ROCMINFO_BINARY  Set location of rocminfo binary
       AOMP: location of AOMP or ROCM
       GPURUN_DEVICE_BIAS: amount to shift device number to avoid dev 0
@@ -141,14 +148,26 @@ EOF
   exit 0
 }
 
-
-[ "$1" == "--version" ] && version
-[ "$1" == "-version" ] && version
-[ "$1" == "-h" ] && usage
-[ "$1" == "-s" ] && verbosity && shift
-[ "$1" == "-v" ] && verbose2 && shift
-[ "$1" == "-help" ] && usage
-[ "$1" == "--help" ] && usage
+_end_gpurun_opts=0
+while [ "$_end_gpurun_opts" == "0"  ] ; do
+   case "$1" in
+      -s)          verbosity;;
+      -q)          verbosity;;
+      --quiet)     verbosity;;
+      -h)          usage ;;
+      -help)       usage ;;
+      --help)      usage ;;
+      -version)    version ;;
+      --version)   version ;;
+      -v)          verbose2 ;;
+      -m)          _use_numactl_membind=1;;
+      -l)          _use_numactl_localalloc=1;;
+      *)           _end_gpurun_opts=1; break;;
+   esac
+   if [ "$_end_gpurun_opts" == "0" ] ; then
+     shift
+   fi
+done
 
 #  Get environment variables set by OpenMPI
 _num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
@@ -227,6 +246,25 @@ if [[ $_scanned_num_devices -lt 1  ]] ; then
    >&2 echo "ERROR: No amdgpu devices found in $_sysdevdir"
    >&2 echo "       num_devices=$_scanned_num_devices"
    exit 1
+fi
+
+# check for taskset or numactl cmd
+if [ "$_use_numactl_membind" == "1" ] || [ "$_use_numactl_localalloc" == "1" ] ; then
+  _binfile=`which numactl`
+  if [ $? != 0 ] ; then
+    >&2 echo "ERROR: The -m (membind) or -l (localalloc) require numactl to be installed."
+    exit 1
+  fi
+else
+  _binfile=`which taskset`
+  if [ $? != 0 ] ; then
+    >&2 echo "ERROR: $0 requires the taskset command to be installed."
+    exit 1
+  fi
+fi
+if [ "$_use_numactl_membind" == "1" ] && [ "$_use_numactl_localalloc" == "1" ] ; then
+  >&2 echo "GPURUN WARNING: When -l and -m are both set, -m is ignored."
+  _use_numactl_membind=0
 fi
 
 # Use rocminfo to find number number of CUs per GPU
@@ -392,7 +430,15 @@ fi
 # retrieve scanned info
 _bdfidstrc=${_long_bdfid[$_device_num]}
 NUMANODE=${_numanode[$_device_num]}
-_taskset_cmd="taskset -c ${_cpulist[$_device_num]}"
+
+# build the process launch command
+if [ "$_use_numactl_localalloc" == "1" ] ; then
+  _taskset_cmd="$_binfile --localalloc --cpunodebind=$NUMANODE"
+elif [ "$_use_numactl_membind" == "1" ] ; then
+  _taskset_cmd="$_binfile --membind=$NUMANODE --cpunodebind=$NUMANODE"
+else
+  _taskset_cmd="$_binfile -c ${_cpulist[$_device_num]}"
+fi
 
 # If gpurun was not given command to execute, then don't run taskset_cmd
 [ "$*" == "" ] && _taskset_cmd=""
