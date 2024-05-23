@@ -20,26 +20,12 @@
 # IN THE SOFTWARE.
 #
 #  gpurun: Process launch utility for GPU applications. This is a wrapper
-#          to execute a GPU application including OpenMPI GPU applications.
+#          to execute application binaries including OpenMPI GPU applications.
 #          See help message below (gpurun -h) for more information.
 #
 #  Usage Examples:
-#    _appbin=true
-#    _appargs=""
-#    gpurun $_appbin $_appargs
-#    mpirun -np  4 gpurun $_appbin $_appargs
-#    mpirun -np  8 gpurun $_appbin $_appargs
-#    mpirun -np  9 gpurun $_appbin $_appargs
-#    mpirun -np 23 gpurun $_appbin $_appargs
-#    # For large numbers of ranks, increase slots with a hosfile.
-#    _host_file="/tmp/host_file$$"
-#    echo "`hostname` slots=64" >$_host_file
-#    mpirun -np 64 -hostfile $_host_file gpurun $_appbin $_appargs
-#    mpirun -np 60 -hostfile $_host_file gpurun $_appbin $_appargs
-#    mpirun -np 55 -hostfile $_host_file gpurun $_appbin $_appargs
-#
-#  TODO:
-#  - Convert this script to a program
+#    gpurun true
+#    mpirun -np  4 gpurun env | grep ROCR_VISIBLE_DEVICES
 #
 
 # PROGVERSION string is updated by cmake when component is installed
@@ -48,18 +34,12 @@ function version(){
    echo $0 version $PROGVERSION
    exit 0
 }
-function verbosity() {
-   export GPURUN_VERBOSE=0
-}
-function verbose2() {
-   export GPURUN_VERBOSE=2
-}
 function usage(){
 /bin/cat 2>&1 <<"EOF"
 
    gpurun: Application process launch utility for GPUs.
            This utility ensures the process will enable either a single
-	   GPU or the number specified with -md option.
+	   GPU or the number specified with -md (multi-device) option.
            It launches the application binary with either the 'taskset'
            or 'numactl' utility so the process only runs on CPU cores
            in the same NUMA domain as the selected GPUs.
@@ -69,7 +49,7 @@ function usage(){
            This utility also sets environment variable HSA_CU_MASK
            to control which CUs are available to the process.
 	   HSA_CU_MASK is set only when more than one OpenMPI process
-	   (rank) will utilize the same GPU.
+	   (rank) will utilize the same GPU and it is not preset.
            Lastly, it sets env variable OMPX_TARGET_TEAM_PROCS to the
            number of CUs available to the process after masking.
 
@@ -82,25 +62,25 @@ function usage(){
       -md  Set number of desired devices for multi-device mode, default=1
       -s   suppress output, often useful in benchmarking
       -q   suppress output, quiet, alias of -s, same as GPURUN_VERBOSE=0
-      -v   Verbose output, same as GPURUN_VERBOSE=2
+      -v   Verbose output, same as GPURUN_VERBOSE=1
+      -vv  Verbose output, same as GPURUN_VERBOSE=2
       -m   use numactl membind to CPUs in same NUMA domain. Note: Allocation
            fails when not enough memory available on these nodes.
       -l   use numactl localalloc to CPUs in same NUMA domain. Note: If
            memory cannot be allocated, alloc falls back to other nodes.
-
       --version Print version of gpurun and exit
 
    Optional Input environment variables:
       GPURUN_VERBOSE
-        "" (or unset) print 1 line trace to stdout, format:
-           RANK:<rank> D:<dev-id> PCI:<pci-id> NN:<numanode> <CU mask if set>
-        0:  for silent operation, nothing is added
-        1:  prints trace and other diagnostics
-        2:  prints trace, other diagnostics, and the process launch command
+        0:  default for silent operation, no trace printed to stderr
+        1:  -v prints trace record including process launch cmd to stderr
+        2:  -vv prints trace and other summary diagnostics
       ROCMINFO_BINARY  Set location of rocminfo binary
       AOMP: location of AOMP or ROCM
       GPURUN_DEVICE_BIAS: amount to shift device number to avoid dev 0.
                           This only works for single device mode.
+      GPURUN_VISIBLE_DEVICE_TYPES: useful if machine has different GPU cards
+      GPURUN_MASK_POLICY : useful if machine has different GPU cards
       ROCR_VISIBLE_DEVICES: See description above
       OMPI_COMM_WORLD_LOCAL_SIZE Number of ranks on this node set by openmpi
       OMPI_COMM_WORLD_LOCAL_RANK The local rank number 0-(nranks-1) from openmpi
@@ -109,10 +89,11 @@ function usage(){
 
    Generated (output) Environment Variables:
       OMPX_TARGET_TEAM_PROCS - Number of CUs available to process
-      ROCR_VISIBLE_DEVICES - A list of GPU Uuids for the selected devices.
-                             Not changed if it was preset.
+      ROCR_VISIBLE_DEVICES - list of GPU Uuids for the selected devices if not preset
       HSA_CU_MASK - The CU mask for the device.
       LIBOMPTARGET_NUM_MULTI_DEVICES - the value set by -md argument
+      GPU_MAX_HW_QUEUES
+      LIBOMPTARGET_AMDGPU_NUM_HSA_QUEUES"
 
    Limitations:
    - Currently, gpurun creates masks that are mutually exclusive of each other.
@@ -132,7 +113,7 @@ function usage(){
      the mutually exclusive CU mask.
 
      An rplace (rank place) is a subset of CUs for a rank. 
-     This utility calculates the number of rplaces needed to contain all
+     gpurun calculates the number of rplaces needed to contain all
      the specified number of ranks for this node. If number of ranks not
      divisible by number of GPUs, then there will be more rplaces than ranks.
      The number of CUs in an rplace is calculated by dividing the number of
@@ -156,18 +137,20 @@ _devices_per_mdset=1
 _uses_multi_device=0
 while [ "$_end_gpurun_opts" == "0"  ] ; do
    case "$1" in
-      -s)          verbosity;;
-      -q)          verbosity;;
-      --quiet)     verbosity;;
+      -s)          GPURUN_VERBOSE=0;;
+      -q)          GPURUN_VERBOSE=0;;
+      --quiet)     GPURUN_VERBOSE=0;;
       -h)          usage ;;
       -help)       usage ;;
       --help)      usage ;;
       -version)    version ;;
       --version)   version ;;
-      -v)          verbose2 ;;
+      -v)          GPURUN_VERBOSE=1;;
+      -vv)         GPURUN_VERBOSE=2;;
       -m)          _use_numactl_membind=1;;
       -md)         shift; _devices_per_mdset=$1; _uses_multi_device=1;;
       -l)          _use_numactl_localalloc=1;;
+      -nomask)     GPURUN_MASK_POLICY="nomask";;
       *)           _end_gpurun_opts=1; break;;
    esac
    if [ "$_end_gpurun_opts" == "0" ] ; then
@@ -175,26 +158,40 @@ while [ "$_end_gpurun_opts" == "0"  ] ; do
    fi
 done
 
+# Default: quiet operation
+GPURUN_VERBOSE=${GPURUN_VERBOSE:-0}
+# Default: create mutually exclusive sets of CUs when GPU is oversubscribed
+GPURUN_MASK_POLICY=${GPURUN_MASK_POLICY:-mutex}
+# switch mask policy to preset if HSA_CU_MASK was preset
+[[ ! -z "$HSA_CU_MASK" ]] && GPURUN_MASK_POLICY=preset
+# switch mask policy to nomask for multi-device
+[[ $_uses_multi_device == 1 ]] && GPURUN_MASK_POLICY=nomask
+# Offset selected device to avoid some heavily used GPUs
+GPURUN_DEVICE_BIAS=${GPURUN_DEVICE_BIAS:-0}
+
 #  Get environment variables set by OpenMPI
 _num_local_ranks=$OMPI_COMM_WORLD_LOCAL_SIZE
 _local_rank_num=$OMPI_COMM_WORLD_LOCAL_RANK
 # If not OpenMPI, check for Platform MPI, MVAPICH
 if [ -z "$_num_local_ranks" ] ; then
-  _num_local_ranks=$MPI_LOCALNRANKS
-  _local_rank_num=$MPI_LOCALRANKID
+   _num_local_ranks=$MPI_LOCALNRANKS
+   _local_rank_num=$MPI_LOCALRANKID
 fi
 # Also try MPI_COMM_WORLD env vars
 if [ -z "$_num_local_ranks" ] ; then
-  _num_local_ranks=$MPI_COMM_WORLD_LOCAL_SIZE
-  _local_rank_num=$MPI_COMM_WORLD_LOCAL_RANK
+   _num_local_ranks=$MPI_COMM_WORLD_LOCAL_SIZE
+   _local_rank_num=$MPI_COMM_WORLD_LOCAL_RANK
+fi
+# Check if SLURM was used
+if [ -z "$_num_local_ranks" ] && [ ! -z $SLURM_CPUS_ON_NODE ] ; then
+   _num_local_ranks=$SLURM_CPUS_ON_NODE
+   _local_rank_num=$SLURM_LOCALID
 fi
 # If none of the above MPIs, assume gpurun is wrapper for single process on single GPU
 if [ -z "$_num_local_ranks" ] ; then
    _num_local_ranks=1
    _local_rank_num=0
 fi
-
-GPURUN_DEVICE_BIAS=${GPURUN_DEVICE_BIAS:-0}
 
 # Find location of the rocminfo binary
 AOMP=${AOMP:-_AOMP_INSTALL_DIR_}
@@ -221,55 +218,184 @@ ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
 [ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../bin/rocminfo
 [ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../../bin/rocminfo
 if [ ! -f $ROCMINFO_BINARY ] ; then
-   >&2 echo "ERROR: Could not find binary $ROCMINFO_BINARY"
-   >&2 echo "       Please correct the installation of ROCM or AOMP"
+   >&2 echo "ERROR: Could not find binary for rocminfo,"
+   >&2 echo "       Please correct installation of ROCM or AOMP compiler"
    exit 1
 fi
 
-# Scan amdgpu devs and store info (bdfid, cpus, and numande) in 3 arrays
-# indexed by _device_num. This is cleaner that parsing rocminfo bdfid.
-# Eventially we want to get rid of all rocminfo parsing.
-_sysdevdir="/sys/bus/pci/devices"
-_scanned_num_devices=0
-_cpulist=()
-_long_bdfid=()
-_numanode=()
-_uuid=()
-for _devid in `ls $_sysdevdir` ; do
-  if [ -f $_sysdevdir/$_devid/device ] ; then
-    _driver_name=`cat $_sysdevdir/$_devid/uevent | grep DRIVER | awk '{print $1}'`
-    if [ ! -z $_driver_name ] ; then
-      if [ $_driver_name  == "DRIVER=amdgpu" ] ; then
-        _numa_node=`cat $_sysdevdir/$_devid/numa_node`
-        _this_uuid=`cat $_sysdevdir/$_devid/unique_id`
-        _this_uuid="GPU-$_this_uuid"
-        [ "$_numa_node" == "-1" ] && _numa_node=0
-        _this_cpulist=`cat $_sysdevdir/$_devid/local_cpulist`
-        _long_bdfid+=( $_devid )
-        _numanode+=( $_numa_node )
-        _cpulist+=( $_this_cpulist )
-        _uuid+=( $_this_uuid )
-        _scanned_num_devices=$(( $_scanned_num_devices + 1 ))
-      fi
-    fi
+# Use rocminfo to find number number of CUs and gfxids for each GPU.
+_tfile="/tmp/rinfo_out$$"
+$ROCMINFO_BINARY 2>/dev/null | grep -E "    Name:| Compute Unit:| Device Type:| BDFID:| Uuid:" >$_tfile
+_tfile_lines=`wc -l $_tfile | cut -d" " -f1`
+if [ $_tfile_lines == 0 ] ; then
+  >&2 echo "ERROR: $ROCMINFO_BINARY failed to find GPU devices"
+  rm $_tfile
+  exit 1
+fi
+# Create 3 _ri_ arrays by parsing rocminfo (ri), one array entry per device
+_ri_all_gfxids=""
+_ri_gfxids=()
+_ri_cucount=()
+_ri_bdfids=()
+_ri_dev_idx=()
+_ri_num_devices=0
+_last_cu_count=0
+_ri_uuid=()
+_last_device_type_was_gpu=0
+_device_type_preset=0
+_ri_num_all_devices=0
+[ ! -z $GPURUN_VISIBLE_DEVICE_TYPES ] && _device_type_preset=1
+while read _linepair ; do
+  _fieldvalue=`echo $_linepair | cut -d":" -f2`
+  _fieldtype=`echo $_linepair | cut -d":" -f1`
+  if [ $_fieldvalue == "CPU" ] ; then
+     _last_device_type_was_gpu=0
+  elif [ $_fieldvalue == "GPU" ] ; then
+     _last_device_type_was_gpu=1
+  elif [ "$_fieldtype" == "Uuid" ] ; then
+     _this_uuid=$_fieldvalue
+  elif [ "$_fieldtype" == "BDFID" ] ; then
+     if [[ $_last_device_type_was_gpu == 1 ]] ; then
+        _bdfidstr=`echo "obase=16; $_fieldvalue" | bc | tr '[:upper:]' '[:lower:]'`
+	if [ ${#_bdfidstr} == 3 ] ; then
+           _bdfidstr="0${_bdfidstr:0:1}:${_bdfidstr:1:2}"
+        else
+           _bdfidstr="${_bdfidstr:0:2}:${_bdfidstr:2:2}"
+        fi
+     fi
+  elif [ "$_fieldtype" == "Name" ] ; then
+     #  The device name field is last in rocminfo output, so we can create new _ri_ array entry
+     if [[ $_last_device_type_was_gpu == 1 ]] ; then
+	_this_gfxid=`echo $_fieldvalue | cut -d'-' -f5`
+        ! [[ ${_ri_all_gfxids} == *"$_this_gfxid"* ]] && _ri_all_gfxids+=" $_this_gfxid"
+        _is_type_visible=1
+	if [ $_device_type_preset == 1 ] ; then
+           _is_type_visible=0
+           if [[ ${GPURUN_VISIBLE_DEVICE_TYPES} == *"$_this_gfxid"* ]] ; then
+	     _is_type_visible=1
+	   fi
+	fi
+        if [ $_is_type_visible == 1 ] ; then
+           _ri_gfxids+=( $_this_gfxid )
+           _ri_cucount+=( $_last_cu_count )
+           _ri_bdfids+=( $_bdfidstr )
+	   _ri_dev_idx+=( $_ri_num_all_devices )
+	   _ri_uuid+=( $_this_uuid )
+           _ri_num_devices=$(( $_ri_num_devices + 1 ))
+	fi
+        _ri_num_all_devices=$(( $_ri_num_all_devices + 1 ))
+     fi
+  else
+     # else the _fieldvalue was the number of CUs or GCPUs
+     if [[ $_last_device_type_was_gpu == 1 ]] ; then
+        _last_cu_count=$_fieldvalue
+     fi
   fi
+done < $_tfile
+rm $_tfile
+
+if [ $_ri_num_devices == 0 ] ; then
+   if [ $_local_rank_num == 0 ] ; then
+      if [ $_device_type_preset == 1 ] ; then
+         >&2 echo "ERROR: No amdgpu devices found by $ROCMINFO_BINARY of type $GPURUN_VISIBLE_DEVICE_TYPES."
+         >&2 echo "       Set GPURUN_VISIBLE_DEVICE_TYPES to one of these types: ${_ri_all_gfxids}"
+      else
+         >&2 echo "ERROR: No amdgpu devices found by $ROCMINFO_BINARY"
+      fi
+      if [ ! -z $ROCR_VISIBLE_DEVICES ] ; then
+         >&2 echo "       ROCR_VISIBLE_DEVICES was preset to $ROCR_VISIBLE_DEVICES"
+         >&2 echo "       Consider unset ROCR_VISIBLE_DEVICES and let gpurun set it correctly."
+      fi
+      exit 1
+   else
+      exit
+   fi
+fi
+
+# Scan /sys/bus/pci/devices (_ss_) for amdgpu devices and store info in 6 per
+# device arrays indexed by device num. The arrays are _ss_cpulist _ss_bdfids,
+# _ss_numanode, _ss_uuid, _ss_gfxid, and _ss_cucount. Some information
+# (cucount, gfxid, dev_idx) must be copied from the _ri_ arrays built above
+# by scanning output from rocminfo.
+_sysdevdir="/sys/bus/pci/devices"
+_ss_num_devices=0
+_ss_cpulist=()
+_ss_bdfid=()
+_ss_numanode=()
+_ss_uuid=()
+_ss_gfxid=()
+_ss_cucount=()
+for _devid in `ls $_sysdevdir` ; do
+   if [ -f $_sysdevdir/$_devid/device ] ; then
+      _driver_name=`cat $_sysdevdir/$_devid/uevent | grep DRIVER | awk '{print $1}'`
+      if [ ! -z $_driver_name ] ; then
+         if [ $_driver_name  == "DRIVER=amdgpu" ] ; then
+            _numa_node=`cat $_sysdevdir/$_devid/numa_node`
+            [ "$_numa_node" == "-1" ] && _numa_node=0
+            _this_uuid=0
+	    if [ -f $_sysdevdir/$_devid/unique_id ] ; then
+               _this_uuid=`cat $_sysdevdir/$_devid/unique_id`
+	       if [ -z $_this_uuid ] ; then
+                  _this_uuid=0
+		  _has_unique_id=0
+	       else
+                  _this_uuid="GPU-$_this_uuid"
+		  _has_unique_id=1
+	       fi
+	    fi
+            _this_cpulist=`cat $_sysdevdir/$_devid/local_cpulist`
+            # Search _ri_ arrays for matching bdfids.
+	    _found_in_ri=0
+	    for _ri_i in ${!_ri_bdfids[@]} ; do
+	       if [ $_has_unique_id == 1 ] ; then
+                  _ss_value=$_this_uuid
+                  _ri_value=${_ri_uuid[$_ri_i]}
+	       else
+                  _ss_value=$_devid
+                  _ri_value="0000:${_ri_bdfids[$_ri_i]}.0"
+               fi
+               if [ $_ss_value == $_ri_value ] ; then
+                  _found_in_ri=1
+	          _gfxid=${_ri_gfxids[$_ri_i]}
+                  _cucount=${_ri_cucount[$_ri_i]}
+	          #  Some GPUs do not have unique_id
+	          [ $_this_uuid == 0 ] && _this_uuid=${_ri_dev_idx[$_ri_i]}
+                  break
+               fi
+            done
+            if [ $_found_in_ri == 1 ] ; then
+               _ss_gfxid+=( $_gfxid )
+               _ss_cucount+=( $_cucount )
+               _ss_bdfid+=( $_devid )
+               _ss_numanode+=( $_numa_node )
+               _ss_cpulist+=( $_this_cpulist )
+               _ss_uuid+=( $_this_uuid )
+               _ss_num_devices=$(( $_ss_num_devices + 1 ))
+            fi
+         fi
+      fi
+   fi
 done
 
-if [[ $_scanned_num_devices -lt 1  ]] ; then
-   >&2 echo "ERROR: No amdgpu devices found in $_sysdevdir"
-   >&2 echo "       num_devices=$_scanned_num_devices"
+if [[ $_ss_num_devices -lt 1  ]] ; then
+   if [ $_device_type_preset == 1 ] ; then
+      >&2 echo "ERROR: No amdgpu devices found in $_sysdevdir of type $GPURUN_VISIBLE_DEVICE_TYPES."
+      >&2 echo "       Set GPURUN_VISIBLE_DEVICE_TYPES to one of these types: ${_ri_all_gfxids}"
+   else
+      >&2 echo "ERROR: No amdgpu devices found in $_sysdevdir."
+   fi
    exit 1
 fi
 
 # check for taskset or numactl cmd
 if [ "$_use_numactl_membind" == "1" ] || [ "$_use_numactl_localalloc" == "1" ] ; then
-  _binfile=`which numactl`
+  _launch_process_cmd_binary=`which numactl`
   if [ $? != 0 ] ; then
     >&2 echo "ERROR: The -m (membind) or -l (localalloc) require numactl to be installed."
     exit 1
   fi
 else
-  _binfile=`which taskset`
+  _launch_process_cmd_binary=`which taskset`
   if [ $? != 0 ] ; then
     >&2 echo "ERROR: $0 requires the taskset command to be installed."
     exit 1
@@ -280,75 +406,8 @@ if [ "$_use_numactl_membind" == "1" ] && [ "$_use_numactl_localalloc" == "1" ] ;
   _use_numactl_membind=0
 fi
 
-# Use rocminfo to find number number of CUs per GPU
-# FIXME: Can we get this from somewhere in /sys to avoid need for rocminfo?
-_available_CUs_per_device=0
-_tfile="/tmp/rinfo_out$$"
-$ROCMINFO_BINARY | grep -E "Compute Unit:| Device Type:" >$_tfile
-while read _linepair ; do
-  _fieldvalue=`echo $_linepair | cut -d":" -f2`
-  _fieldtype=`echo $_linepair | cut -d":" -f1`
-  if [ $_fieldvalue == "CPU" ] ; then
-     _last_device_type_was_gpu=0
-  elif [ $_fieldvalue == "GPU" ] ; then
-     _last_device_type_was_gpu=1
-  else
-     # else the _fieldvalue was the number of CUs or GCPUs
-     if [[ $_last_device_type_was_gpu == 1 ]] ; then
-	if [[ $_available_CUs_per_device == 0 ]] ; then
-           # set number of CUs from the first GPU agent
-           _available_CUs_per_device=$_fieldvalue
-	else
-	   # ensure all subsequent GPU agents have same number of CUs
-           if [[ $_available_CUs_per_device != $_fieldvalue ]] ; then
-              >&2 echo "ERROR: Defective node! The cu_count for each GPU must be identical"
-	      >&2 echo "       Last CU count : $_fieldvalue"
-	      >&2 echo "       First CU count : $_available_CUs_per_device"
-	      >&2 echo "       Scanned Number of GPUs : $_scanned_num_devices"
-	      exit 1
-           fi
-        fi
-     fi
-  fi
-done < $_tfile
-rm $_tfile
-
-if [[ -z $ROCR_VISIBLE_DEVICES ]] ; then
-  _num_devices=$_scanned_num_devices
-else
-  if [[ "$ROCR_VISIBLE_DEVICES" =~ .*",".* ]] ; then
-    >&2 echo "ERROR: preset ROCR_VISIBLE_DEVICES '$ROCR_VISIBLE_DEVICES' exposes more than one GPU"
-    >&2 echo "       gpurun assumes each process will get a single GPU"
-    >&2 echo "       use a single index between 0 and $(( $_scanned_num_devices - 1 ))"
-    exit 1
-  fi
-  if [[ "$ROCR_VISIBLE_DEVICES" =~ .*"-".* ]] ; then
-    >&2 echo "ERROR: preset ROCR_VISIBLE_DEVICES '$ROCR_VISIBLE_DEVICES' is invalid"
-    >&2 echo "       use a single index between 0 and $(( $_scanned_num_devices - 1 ))"
-    exit 1
-  fi
-  if [[ $ROCR_VISIBLE_DEVICES -ge $_scanned_num_devices ]] ; then
-    >&2 echo "ERROR: preset ROCR_VISIBLE_DEVICES '$ROCR_VISIBLE_DEVICES' is invalid"
-    >&2 echo "       use a single index between 0 and $(( $_scanned_num_devices - 1 ))"
-    exit 1
-  fi
-  _num_devices=1
-  if [[ $_scanned_num_devices != 1 ]] && [[ "$GPURUN_VERBOSE" != "0"  ]]  ; then
-    >&2 echo "WARNING: preset ROCR_VISIBLE_DEVICES, process $_local_rank_num of $_num_local_ranks to use dev $ROCR_VISIBLE_DEVICES"
-  fi
-fi
-
-_node_cus=$(( $_num_devices * $_available_CUs_per_device ))
-if [ $_num_local_ranks -gt $_node_cus ] ; then
-   >&2 echo "ERROR: Not enough CUs ($_node_cus) for $_num_local_ranks ranks "
-   exit 1
-fi
-
-if [ $_num_devices -gt  $_num_local_ranks ] ; then
-   _utilized_devices=$_num_local_ranks
-else
-   _utilized_devices=$_num_devices
-fi
+_utilized_devices=$_ri_num_devices
+[ $_ri_num_devices -gt $_num_local_ranks ] && _utilized_devices=$_num_local_ranks
 
 # Calculate number of GPUs to use to evenly spread ranks across GPUs.
 # An rplace is a set of CUs that will be used for a rank.
@@ -360,40 +419,39 @@ if [ $_uncovered_ranks != 0 ] ; then
    # then add an extra rplace per GPU to make room for remainder.
    _number_of_rplaces_per_GPU=$(( $_number_of_rplaces_per_GPU + 1 ))
 fi
-
-if [ $_uses_multi_device == 0 ]; then
-   # Determine device_num when no mdsets indexed
-   if [[ -z $ROCR_VISIBLE_DEVICES ]] ; then
-      _device_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
-      # Some users want to shift selected device to avoid dev 0
-      _device_num=$(( ( $_device_num + $GPURUN_DEVICE_BIAS ) % $_num_devices ))
-      _relative_device_num=$_device_num
-   else
-      # if caller set ROCR_VISIBLE_DEVICES, that becomes the device_num
-      _device_num=$ROCR_VISIBLE_DEVICES
-      _relative_device_num=0
-   fi
+if [ $GPURUN_MASK_POLICY == "mutex" ] ; then
+   # For mutex policy, adjacent ranks are assigned to the same device.
+   _rplace_num=$(( $_local_rank_num / $_number_of_rplaces_per_GPU ))
+   # Some users want to avoid dev 0 etc, by setting GPURUN_DEVICE_BIAS
+   _device_num=$(( ( $_rplace_num + $GPURUN_DEVICE_BIAS ) % $_ri_num_devices ))
 else
+   # for mask policies nomask or preset, adjacent ranks are assigned to
+   # different GPUs and oversubscribed ranks are assigned round robin
+   _device_num=$(( ( $_local_rank_num + $GPURUN_DEVICE_BIAS ) % $_ri_num_devices ))
+fi
+
+_node_cus=$(( $_ri_num_devices * ${_ss_cucount[$_device_num]} ))
+if [ $_num_local_ranks -gt $_node_cus ] ; then
+   >&2 echo "ERROR: Not enough CUs ($_node_cus) for $_num_local_ranks ranks "
+   exit 1
+fi
+
+if [ $_uses_multi_device == 1 ]; then
+   # Enforce some rules on the use of -md option
+   # Note -md forces GPURUN_MASK_POLICY=nomask
    if [[ ! -z $ROCR_VISIBLE_DEVICES ]] ; then
-      >&2 echo "ERROR: DO NOT PRESET ROCR_VISIBLE_DEVICES with multiple devices -md > 1"
+      >&2 echo "ERROR: DO NOT PRESET ROCR_VISIBLE_DEVICES in gpurun multi-device (-md) mode"
       exit 1
    fi
-   # With multiple devices per rank, there better be a single rplace per GPU
-   if [ $_number_of_rplaces_per_GPU != 1 ] ; then
-      >&2 echo "ERROR: multiple devices per rank requires a single rplace per GPU"
+   if [ $_devices_per_mdset -gt $_ri_num_devices ] ; then
+      >&2 echo "ERROR: More devices requested ($_devices_per_mdset) than available ($_ri_num_devices)"
       exit 1
    fi
-   if [ $_devices_per_mdset -gt $_num_devices ] ; then
-      >&2 echo "ERROR: More devices requested ($_devices_per_mdset) than available ($_num_devices)"
-      exit 1
+   _md_total_devices=$(( $_num_local_ranks * $_devices_per_mdset ))
+   if [ $_md_total_devices -gt $_ri_num_devices ] &&  [ $_local_rank_num == 0 ] ; then
+      printf "WARNING: processes($_num_local_ranks) * md set size($_devices_per_mdset) = $_md_total_devices > than available devices ($_ri_num_devices)\n         Some multi-device sets will overlap.\n" >&2
    fi
-   _mdset_num=$(( $_local_rank_num ))
-   _num_mdsets=$(( $_num_local_ranks ))
-   _md_total_devices=$(( $_num_mdsets * $_devices_per_mdset ))
-   if [ $_md_total_devices -gt $_num_devices ] &&  [ $_mdset_num == 0 ] ; then
-      printf "WARNING: processes($_num_mdsets) * md set size($_devices_per_mdset) = $_md_total_devices > than available devices ($_num_devices)\n         Some multi-device sets will overlap.\n" >&2
-   fi
-   _md_device_set_start=$(( ( $_mdset_num * $_devices_per_mdset ) % $_num_devices))
+   _md_device_set_start=$(( ( $_local_rank_num * $_devices_per_mdset ) % $_ri_num_devices))
    _md_device_set_end=$(( $_md_device_set_start + $_devices_per_mdset - 1 ))
 
    # merge entries for this mdset from per device arrays
@@ -405,17 +463,36 @@ else
    _sep=""
    for i in `seq $_md_device_set_start $_md_device_set_end` ; do
       _dev_index=$i
-      # handle round robin
-      if [ $i -ge $_num_devices ] ; then
-	_dev_index=$(( $i % $_num_devices ))
+      # handle index wrap around number of devices
+      [ $i -ge $_ri_num_devices ] && _dev_index=$(( $i % $_ri_num_devices ))
+      _md_bdfs+=$_sep${_ss_bdfid[$_dev_index]}
+      _new_nn=${_ss_numanode[$_dev_index]}
+      SAVEIFS=$IFS
+      IFS=","
+      _found=0
+      for _existing_nn in $_md_nns ; do
+         [ $_existing_nn == $_new_nn ] && _found=1
+      done
+      IFS=$SAVEIFS
+      if [ $_found == 0 ] ; then
+	 # only add new numa node and cpulist, if not already in the md set
+         _md_nns+=$_sep$_new_nn
+         _md_cpus+=$_sep${_ss_cpulist[$_dev_index]}
       fi
-      _md_bdfs+=$_sep${_long_bdfid[$_dev_index]}
-      _md_nns+=$_sep${_numanode[$_dev_index]}
-      _md_cpus+=$_sep${_cpulist[$_dev_index]}
-      _md_uuids+=$_sep${_uuid[$_dev_index]}
+      _md_uuids+=$_sep${_ss_uuid[$_dev_index]}
       _md_dev_idxs+=$_sep$_dev_index
       _sep=","
    done
+   _device_num=$_md_device_set_start
+fi
+
+_available_CUs_per_device=${_ss_cucount[$_device_num]}
+_gfxid=${_ss_gfxid[$_device_num]}
+
+_node_cus=$(( $_ri_num_devices * ${_ss_cucount[$_device_num]} ))
+if [ $_num_local_ranks -gt $_node_cus ] ; then
+   >&2 echo "ERROR: Not enough CUs ($_node_cus) for $_num_local_ranks ranks "
+   exit 1
 fi
 
 _utilized_CUs_per_device=$_available_CUs_per_device
@@ -428,64 +505,67 @@ done
 _CUs_per_rplace=$(( $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU ))
 
 # --- THIS BLOCK ONLY FOR VERBOSE DIAGS PRINTED FROM RANK 0
-if [ $_local_rank_num == 0 ] && [[ "$GPURUN_VERBOSE" == "1" || "$GPURUN_VERBOSE" == "2" ]]; then
-if [ $_uses_multi_device == 0 ] ; then
-   _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
-   _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_num_devices ))
-   _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
-   _wasted_GPUs=$(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU ))
-   _used_cus=$(( $_num_local_ranks * $_CUs_per_rplace ))
-   _utilization=$(( ( $_used_cus * 100 ) / $_node_cus ))
-   if ! [ $_num_devices -gt $_num_local_ranks ] ; then
-      if [ $_wasted_CUs_on_each_GPU != 0 ] || [ $_total_wasted_rplaces != 0 ] ; then
-         _extra_diags=true
+if [ $_local_rank_num == 0 ] && [[ "$GPURUN_VERBOSE" == "2" ]]; then
+   if [ $_uses_multi_device == 0 ] ; then
+      _wasted_CUs_on_each_GPU=$(( $_available_CUs_per_device - $_utilized_CUs_per_device ))
+      _total_GPU_rplaces=$(( $_number_of_rplaces_per_GPU * $_ri_num_devices ))
+      _total_wasted_rplaces=$(( $_total_GPU_rplaces - $_num_local_ranks ))
+      _wasted_GPUs=$(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU ))
+      _used_cus=$(( $_num_local_ranks * $_CUs_per_rplace ))
+      _utilization=$(( ( $_used_cus * 100 ) / $_node_cus ))
+      if ! [ $_ri_num_devices -gt $_num_local_ranks ] ; then
+         if [ $_wasted_CUs_on_each_GPU != 0 ] || [ $_total_wasted_rplaces != 0 ] ; then
+            _extra_diags=true
+         fi
       fi
+      >&2 echo "-  ROCMINFO LOCATION:   $ROCMINFO_BINARY"
+      >&2 echo "-  PROCESSES:           $_num_local_ranks (RANKS)"
+      >&2 echo "-  AVAILABLE GPUS:      $_ri_num_devices"
+      [ $_extra_diags ] && \
+      >&2 echo "-- USED GPUS:           $(( $_ri_num_devices - $_wasted_GPUs ))"
+      [ $_extra_diags ] && \
+      >&2 echo "-- UNUSED GPUS:         $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
+      [ $_extra_diags ] && echo
+      >&2 echo "-  RPLACEs PER NODE:    $_total_GPU_rplaces"
+      >&2 echo "-  RPLACEs PER GPU:     $_number_of_rplaces_per_GPU"
+      [ $_extra_diags ] && \
+      >&2 echo "-- USED RPLACEs:        $_num_local_ranks (RANKS)"
+      [ $_extra_diags ] && \
+      >&2 echo "-- UNUSED RPLACEs:      $_total_wasted_rplaces" ; \
+      >&2 echo "-  gfxids               ${_ss_gfxid[@]}"
+      >&2 echo "-  CUs PER GPU:         ${_ss_cucount[@]}"
+      [ $_extra_diags ] && \
+      >&2 echo "-- USED on CUs RANK0:   $_utilized_CUs_per_device"
+      [ $_extra_diags ] && \
+      >&2 echo "-- UNUSED CUs RANK0 :   $_wasted_CUs_on_each_GPU"
+      >&2 echo "-  CUs per RPLACE RANK0:$_CUs_per_rplace (OMPX_TARGET_TEAM_PROCS)"
+      >&2 echo "-  FORMULA: OMPX_TARGET_TEAM_PROCS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
+      if [[ ! -z "$ROCR_VISIBLE_DEVICES" ]] ; then
+         >&2 echo "-  Preset ROCR_VISIBLE_DEVICES:  $ROCR_VISIBLE_DEVICES"
+      fi
+      if [[ ! -z "$HSA_CU_MASK" ]] ; then
+         # node utilizatino could be incorrect with preset cumask.
+         >&2 echo "-  Preset HSA_CU_MASK: $HSA_CU_MASK"
+      else
+         >&2 echo "-  NODE UTILIZATION:  $_utilization %"
+      fi
+   else
+      >&2 echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
+      >&2 echo "-  PROCESSES:         $_num_local_ranks (RANKS)"
+      >&2 echo "-  AVAILABLE GPUS:    $_ri_num_devices"
+      >&2 echo "-  DEVS PER RANK:     $_devices_per_mdset"
+      >&2 echo "-  MULTI-DEVICE GPUS: $_md_total_devices (RANKS*DEVS-PER-RANK)"
+      _md_utilization=$(( $_md_total_devices * 100 / $_ri_num_devices ))
+      >&2 echo "-  NODE UTILIZATION:  $_md_utilization %"
    fi
-   >&2 echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
-   >&2 echo "-  PROCESSES:         $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
-   [ $_extra_diags ] && echo
-   >&2 echo "-  SCANNED GPUS:      $_scanned_num_devices ($_sysdevdir)"
-   >&2 echo "-  AVAILABLE GPUS:    $_num_devices"
-   [ $_extra_diags ] && \
-   >&2 echo "-- USED GPUS:         $(( $_num_devices - $_wasted_GPUs ))"
-   [ $_extra_diags ] && \
-   >&2 echo "-- UNUSED GPUS:       $(( $_total_wasted_rplaces / $_number_of_rplaces_per_GPU )) "
-   [ $_extra_diags ] && echo
-   >&2 echo "-  RPLACEs PER NODE:  $_total_GPU_rplaces"
-   >&2 echo "-  RPLACEs PER GPU:   $_number_of_rplaces_per_GPU"
-   [ $_extra_diags ] && \
-   >&2 echo "-- USED RPLACEs:      $_num_local_ranks (RANKS)"
-   [ $_extra_diags ] && \
-   >&2 echo "-- UNUSED RPLACEs:    $_total_wasted_rplaces" ; \
-   #&2 echo "-  LAST GPU UNUSED RPLACES:  $(( $_total_wasted_rplaces % $_number_of_rplaces_per_GPU )) "
-   [ $_extra_diags ] && echo
-   >&2 echo "-  CUs PER GPU:      $_available_CUs_per_device"
-   [ $_extra_diags ] && \
-   >&2 echo "-- USED CUs PER GPU:  $_utilized_CUs_per_device"
-   [ $_extra_diags ] && \
-   >&2 echo "-- UNUSED CUs PER GPU:$_wasted_CUs_on_each_GPU"
-   >&2 echo "-  CUs PER RPLACE:    $_CUs_per_rplace (OMPX_TARGET_TEAM_PROCS)"
-   >&2 echo "-  FORMULA: OMPX_TARGET_TEAM_PROCS = $_utilized_CUs_per_device / $_number_of_rplaces_per_GPU"
-   if [[ -z "$HSA_CU_MASK" ]] ; then
-      # node utilizatino could be incorrect with preset mask.
-      >&2 echo "-  NODE UTILIZATION:  $_utilization %"
-   fi
-else
-   >&2 echo "-  ROCMINFO LOCATION: $ROCMINFO_BINARY"
-   >&2 echo "-  PROCESSES:         $_num_local_ranks (OMPI_COMM_WORLD_LOCAL_SIZE)"
-   >&2 echo "-  AVAILABLE GPUS:    $_num_devices"
-   >&2 echo "-  MULTI-DEVICE GPUS: $_md_total_devices"
-   _md_utilization=$(( $_md_total_devices * 100 / $_num_devices ))
-   >&2 echo "-  NODE UTILIZATION:  $_md_utilization %"
-fi
 fi
 #  --- END OF DIAGNOSTIC BLOCK
 
-if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
+if [ $_CUs_per_rplace != $_available_CUs_per_device ] && [ $GPURUN_MASK_POLICY == "mutex" ] ; then
    #  Build the CU mask for this rank, bits_to_set = _CUs_per_rplace
    _bits_to_set=$_CUs_per_rplace
    #  This formula keeps adjacent ranks on same GPU which should be preferred
-   _bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _relative_device_num * $_utilized_CUs_per_device) ))
+   _bits_to_shift=$(( ( $_local_rank_num * $_bits_to_set) - ( _device_num * $_utilized_CUs_per_device) ))
    # use bc because these values can be very large
    _unshifted_bits=`echo "(2 ^ $_bits_to_set) - 1" | bc`
    _mask=`echo "obase=16; $_unshifted_bits * (2 ^ $_bits_to_shift)" | bc`
@@ -497,34 +577,39 @@ if [ $_CUs_per_rplace != $_available_CUs_per_device ] ; then
    _mask="0x$_mask"
 fi
 
-_taskset_cmd=""
+_launch_process_cmd=""
 if [ $_uses_multi_device == 0 ] ; then
    # retrieve scanned info from per device arrays
-   _bdfidstrc=${_long_bdfid[$_device_num]}
-   NUMANODE=${_numanode[$_device_num]}
-   _list_of_cpu_cores=${_cpulist[$_device_num]}
-   _this_uuid=${_uuid[$_device_num]}
+   _bdfidstrc=${_ss_bdfid[$_device_num]}
+   NUMANODE=${_ss_numanode[$_device_num]}
+   _list_of_cpu_cores=${_ss_cpulist[$_device_num]}
+   _this_uuid=${_ss_uuid[$_device_num]}
 else
    # Use multi-device values
    _bdfidstrc=$_md_bdfs
    NUMANODE=$_md_nns
    _list_of_cpu_cores=$_md_cpus
    _this_uuid=$_md_uuids
-   _taskset_cmd+="env LIBOMPTARGET_NUM_MULTI_DEVICES=$_devices_per_mdset "
+   _launch_process_cmd+="env LIBOMPTARGET_NUM_MULTI_DEVICES=$_devices_per_mdset "
 fi
 if [ "$_use_numactl_localalloc" == "1" ] ; then
-  _taskset_cmd+="$_binfile --localalloc --cpunodebind=$NUMANODE"
+   _launch_process_cmd+="$_launch_process_cmd_binary --localalloc --cpunodebind=$NUMANODE"
 elif [ "$_use_numactl_membind" == "1" ] ; then
-  _taskset_cmd+="$_binfile --membind=$NUMANODE --cpunodebind=$NUMANODE"
+   _launch_process_cmd+="$_launch_process_cmd_binary --membind=$NUMANODE --cpunodebind=$NUMANODE"
 else
-  _taskset_cmd+="$_binfile -c $_list_of_cpu_cores"
+   _launch_process_cmd+="$_launch_process_cmd_binary -c $_list_of_cpu_cores"
 fi
 
-# If gpurun was not given command to execute, then don't run taskset_cmd
-[ "$*" == "" ] && _taskset_cmd=""
+# If gpurun was not given command to execute, then dont run _launch_process_cmd
+[ "$*" == "" ] && _launch_process_cmd=""
 
-# only set ROCR_VISIBLE_DEVICES if not already set and multiple devices available
-[[ -z $ROCR_VISIBLE_DEVICES ]] && [[ $_num_devices != 1 ]] && export ROCR_VISIBLE_DEVICES=$_this_uuid
+# only set ROCR_VISIBLE_DEVICES if not already set
+if [[ -z $ROCR_VISIBLE_DEVICES ]] ; then
+   export ROCR_VISIBLE_DEVICES=$_this_uuid
+   _log_word="RVD"
+else
+   _log_word="PRESET-RVD"
+fi
 
 export OMPX_TARGET_TEAM_PROCS=$_CUs_per_rplace
 
@@ -535,23 +620,22 @@ if [ $_number_of_rplaces_per_GPU != 1 ] ; then
    [[ -z "$LIBOMPTARGET_AMDGPU_NUM_HSA_QUEUES" ]] && export LIBOMPTARGET_AMDGPU_NUM_HSA_QUEUES=1
 fi
 
-if [[ ! -z "$HSA_CU_MASK" ]] && [[ "$GPURUN_VERBOSE" != "0"  ]] ; then
-   >&2 echo "WARNING: preset HSA_CU_MASK:$HSA_CU_MASK"
-fi
-if [ $_CUs_per_rplace == $_available_CUs_per_device ] ; then
-   # Do not modify HSA_CU_MASK when using all CUs
-   if [ "$GPURUN_VERBOSE" == "1" ] || [ "$GPURUN_VERBOSE" == "" ] ; then
-      printf "RANK:%02d D:%d PCI:%5s NN:%d \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE >&2
-   fi
-   if [ "$GPURUN_VERBOSE" == "2" ] ; then
+[[ ! -z "$HSA_CU_MASK" ]] && [[ "$GPURUN_VERBOSE" != "0"  ]] && \
+   [[ $_local_rank_num == 0 ]] && >&2 echo "WARNING: preset HSA_CU_MASK:$HSA_CU_MASK"
+
+if [ $_CUs_per_rplace == $_available_CUs_per_device ] || [ "$GPURUN_MASK_POLICY" == "nomask" ] ; then
+   # --- HSA_CU_MASK is NOT USED in this code block, This code block covers all multi-device execution.
+   if [ "$GPURUN_VERBOSE" != "0" ] ; then
       if [ $_uses_multi_device == 1 ] ; then
-         printf "RANK:$_mdset_num MD:$_devices_per_mdset NNs:$_md_nns RVD:$ROCR_VISIBLE_DEVICES  CMD:$_taskset_cmd $*\n" >&2
+         printf "RANK:$_local_rank_num D:$_md_dev_idxs NNs:$_md_nns GPUTYPE:$_gfxid $_log_word:$ROCR_VISIBLE_DEVICES\n     CMD:$_launch_process_cmd $*\n" >&2
       else
-         printf "RANK:%02d D:%d PCI:%5s NN:%d CMD:%s $* \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd\n" >&2
+         printf "RANK:$_local_rank_num D:%d PCI:%5s NN:%d GPUTYPE:$_gfxid $_log_word:%s \n     CMD:%s $*\n" $_device_num $_bdfidstrc $NUMANODE $ROCR_VISIBLE_DEVICES "$_launch_process_cmd" >&2
       fi
    fi
-   $_taskset_cmd $*
+   $_launch_process_cmd $*
+   # --- end code block
 else
+   # --- HSA_CU_MASK is required in this code block, assumes no multi-device
    if [[ -z "$HSA_CU_MASK" ]] ; then
       # Since ROCR_VISIBLE_DEVICES only enables 1 GPU, HSA_CU_MASK starts with 0:
       export HSA_CU_MASK=0:$_mask
@@ -559,13 +643,11 @@ else
       # use preset mask
       _mask=$HSA_CU_MASK
    fi
-   if [ "$GPURUN_VERBOSE" == "1" ] || [ "$GPURUN_VERBOSE" == "" ] ; then
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:$_mask \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE >&2
-   fi
-   if [ "$GPURUN_VERBOSE" == "2" ] ; then
-      printf "RANK:%02d D:%d PCI:%5s NN:%d CUMASK:$_mask CMD:%s $* \n" $_local_rank_num $_device_num $_bdfidstrc $NUMANODE "$_taskset_cmd" >&2
+   if [ "$GPURUN_VERBOSE" != "0" ] ; then
+      printf "RANK:$_local_rank_num D:%d PCI:%5s NN:%d $_gfxid CUMASK:$_mask $_log_word:$ROCR_VISIBLE_DEVICES \n     CMD:%s $*\n" $_device_num $_bdfidstrc $NUMANODE "$_launch_process_cmd" >&2
    fi
    HSA_CU_MASK=0:$_mask \
-   $_taskset_cmd $*
+   $_launch_process_cmd $*
+   # --- end code block
 fi
 exit $?
