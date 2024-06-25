@@ -337,17 +337,24 @@ for _devid in `ls $_sysdevdir` ; do
                _this_uuid=`cat $_sysdevdir/$_devid/unique_id`
 	       if [ -z $_this_uuid ] ; then
                   _this_uuid=0
-		  _has_unique_id=0
+		  _has_unique_id_file=0
 	       else
                   _this_uuid="GPU-$_this_uuid"
-		  _has_unique_id=1
+		  _has_unique_id_file=1
 	       fi
 	    fi
             _this_cpulist=`cat $_sysdevdir/$_devid/local_cpulist`
-            # Search _ri_ arrays for matching bdfids.
-	    _found_in_ri=0
+	    _match_uuid_count=0
 	    for _ri_i in ${!_ri_bdfids[@]} ; do
-	       if [ $_has_unique_id == 1 ] ; then
+               _ss_value=$_this_uuid
+               _ri_value=${_ri_uuid[$_ri_i]}
+               if [ $_ss_value == $_ri_value ] ; then
+                  _match_uuid_count=$(( $_match_uuid_count + 1 ))
+	       fi
+	    done
+            # Search _ri_ arrays for matching uuids or matching bdfids.
+	    for _ri_i in ${!_ri_bdfids[@]} ; do
+	       if [ $_has_unique_id_file == 1 ] ; then
                   _ss_value=$_this_uuid
                   _ri_value=${_ri_uuid[$_ri_i]}
 	       else
@@ -355,23 +362,21 @@ for _devid in `ls $_sysdevdir` ; do
                   _ri_value="0000:${_ri_bdfids[$_ri_i]}.0"
                fi
                if [ $_ss_value == $_ri_value ] ; then
-                  _found_in_ri=1
-	          _gfxid=${_ri_gfxids[$_ri_i]}
-                  _cucount=${_ri_cucount[$_ri_i]}
-	          #  Some GPUs do not have unique_id
-	          [ $_this_uuid == 0 ] && _this_uuid=${_ri_dev_idx[$_ri_i]}
-                  break
+	          if [ $_this_uuid == 0 ] || [ $_match_uuid_count -gt 1 ] ; then
+	             # Some GPUs do not have unique_id or TPX mode creates multiple
+		     # identical uuids, so use device index for RVD
+                     _ss_uuid+=( ${_ri_dev_idx[$_ri_i]} )
+		  else
+                     _ss_uuid+=( $_this_uuid )
+		  fi
+		  _ss_gfxid+=( ${_ri_gfxids[$_ri_i]} )
+		  _ss_cucount+=( ${_ri_cucount[$_ri_i]} )
+                  _ss_bdfid+=( $_devid )
+                  _ss_numanode+=( $_numa_node )
+                  _ss_cpulist+=( $_this_cpulist )
+                  _ss_num_devices=$(( $_ss_num_devices + 1 ))
                fi
             done
-            if [ $_found_in_ri == 1 ] ; then
-               _ss_gfxid+=( $_gfxid )
-               _ss_cucount+=( $_cucount )
-               _ss_bdfid+=( $_devid )
-               _ss_numanode+=( $_numa_node )
-               _ss_cpulist+=( $_this_cpulist )
-               _ss_uuid+=( $_this_uuid )
-               _ss_num_devices=$(( $_ss_num_devices + 1 ))
-            fi
          fi
       fi
    fi
