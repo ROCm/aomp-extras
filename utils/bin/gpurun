@@ -28,6 +28,14 @@
 #    mpirun -np  4 gpurun env | grep ROCR_VISIBLE_DEVICES
 #
 
+# If set to 1, just invoke the rest of the command line without doing anything
+# else.
+GPURUN_BYPASS=${GPURUN_BYPASS:-0}
+
+if [ "$GPURUN_BYPASS" = "1" ]; then
+   exec "$@"
+fi
+
 # PROGVERSION string is updated by cmake when component is installed
 PROGVERSION=X.Y-Z
 function version(){
@@ -256,12 +264,10 @@ while read _linepair ; do
      _this_uuid=$_fieldvalue
   elif [ "$_fieldtype" == "BDFID" ] ; then
      if [[ $_last_device_type_was_gpu == 1 ]] ; then
-        _bdfidstr=`echo "obase=16; $_fieldvalue" | bc | tr '[:upper:]' '[:lower:]'`
-	if [ ${#_bdfidstr} == 3 ] ; then
-           _bdfidstr="0${_bdfidstr:0:1}:${_bdfidstr:1:2}"
-        else
-           _bdfidstr="${_bdfidstr:0:2}:${_bdfidstr:2:2}"
-        fi
+        # _domain="$(echo "$_fieldvalue / (2^32)" | bc)"
+        _bus="$(echo "($_fieldvalue / (2^8)) % (2^8)" | bc)"
+        _devfn="$(echo "($_fieldvalue % (2^8))" | bc)"
+        _bdfidstr="$(printf "%.2x:%.2x" "$_bus" "$_devfn")"
      fi
   elif [ "$_fieldtype" == "Name" ] ; then
      #  The device name field is last in rocminfo output, so we can create new _ri_ array entry
@@ -354,9 +360,13 @@ for _devid in `ls $_sysdevdir` ; do
 	    done
             # Search _ri_ arrays for matching uuids or matching bdfids.
 	    for _ri_i in ${!_ri_bdfids[@]} ; do
-	       if [ $_has_unique_id_file == 1 ] ; then
+	       if [ "$_has_unique_id_file" == "1" ] ; then
                   _ss_value=$_this_uuid
                   _ri_value=${_ri_uuid[$_ri_i]}
+               elif [ "${_ri_bdfids[$_ri_i]}" == "00:00" ]; then
+                  # Under Hyper-V, we may see a zero BDFID.  Fall back to UUID.
+                  _ss_value=$_devid
+                  _ri_value=$_devid
 	       else
                   _ss_value=$_devid
                   _ri_value="0000:${_ri_bdfids[$_ri_i]}.0"
