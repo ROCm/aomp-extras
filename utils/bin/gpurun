@@ -32,8 +32,12 @@
 # else.
 GPURUN_BYPASS=${GPURUN_BYPASS:-0}
 
-if [ "$GPURUN_BYPASS" = "1" ]; then
+function execOnError() {
    exec "$@"
+}
+
+if  [ "$GPURUN_BYPASS" = "1" ]; then
+  execOnError "$@"
 fi
 
 # PROGVERSION string is updated by cmake when component is installed
@@ -220,7 +224,7 @@ fi
 if [ ! -d $AOMP ] ; then
    >&2 echo "ERROR: AOMP not found at $AOMP"
    >&2 echo "       Please install AOMP or correctly set env-var AOMP"
-   exit 1
+   execOnError "$@"
 fi
 ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
 [ ! -f $ROCMINFO_BINARY ] && ROCMINFO_BINARY=$AOMP/../bin/rocminfo
@@ -228,7 +232,7 @@ ROCMINFO_BINARY=${ROCMINFO_BINARY:-$AOMP/bin/rocminfo}
 if [ ! -f $ROCMINFO_BINARY ] ; then
    >&2 echo "ERROR: Could not find binary for rocminfo,"
    >&2 echo "       Please correct installation of ROCM or AOMP compiler"
-   exit 1
+   execOnError "$@"
 fi
 
 # Use rocminfo to find number number of CUs and gfxids for each GPU.
@@ -238,7 +242,7 @@ _tfile_lines=`wc -l $_tfile | cut -d" " -f1`
 if [ $_tfile_lines == 0 ] ; then
   >&2 echo "ERROR: $ROCMINFO_BINARY failed to find GPU devices"
   rm $_tfile
-  exit 1
+  execOnError "$@"
 fi
 # Create 3 _ri_ arrays by parsing rocminfo (ri), one array entry per device
 _ri_all_gfxids=""
@@ -312,9 +316,9 @@ if [ $_ri_num_devices == 0 ] ; then
          >&2 echo "       ROCR_VISIBLE_DEVICES was preset to $ROCR_VISIBLE_DEVICES"
          >&2 echo "       Consider unset ROCR_VISIBLE_DEVICES and let gpurun set it correctly."
       fi
-      exit 1
+      execOnError "$@"
    else
-      exit
+      execOnError "$@"
    fi
 fi
 
@@ -399,7 +403,7 @@ if [[ $_ss_num_devices -lt 1  ]] ; then
    else
       >&2 echo "ERROR: No amdgpu devices found in $_sysdevdir."
    fi
-   exit 1
+   execOnError "$@"
 fi
 
 # check for taskset or numactl cmd
@@ -407,13 +411,13 @@ if [ "$_use_numactl_membind" == "1" ] || [ "$_use_numactl_localalloc" == "1" ] ;
   _launch_process_cmd_binary=`which numactl`
   if [ $? != 0 ] ; then
     >&2 echo "ERROR: The -m (membind) or -l (localalloc) require numactl to be installed."
-    exit 1
+    execOnError "$@"
   fi
 else
   _launch_process_cmd_binary=`which taskset`
   if [ $? != 0 ] ; then
     >&2 echo "ERROR: $0 requires the taskset command to be installed."
-    exit 1
+    execOnError "$@"
   fi
 fi
 if [ "$_use_numactl_membind" == "1" ] && [ "$_use_numactl_localalloc" == "1" ] ; then
@@ -448,7 +452,7 @@ fi
 _node_cus=$(( $_ri_num_devices * ${_ss_cucount[$_device_num]} ))
 if [ $_num_local_ranks -gt $_node_cus ] ; then
    >&2 echo "ERROR: Not enough CUs ($_node_cus) for $_num_local_ranks ranks "
-   exit 1
+   execOnError "$@"
 fi
 
 if [ $_uses_multi_device == 1 ]; then
@@ -456,11 +460,11 @@ if [ $_uses_multi_device == 1 ]; then
    # Note -md forces GPURUN_MASK_POLICY=nomask
    if [[ ! -z $ROCR_VISIBLE_DEVICES ]] ; then
       >&2 echo "ERROR: DO NOT PRESET ROCR_VISIBLE_DEVICES in gpurun multi-device (-md) mode"
-      exit 1
+      execOnError "$@"
    fi
    if [ $_devices_per_mdset -gt $_ri_num_devices ] ; then
       >&2 echo "ERROR: More devices requested ($_devices_per_mdset) than available ($_ri_num_devices)"
-      exit 1
+      execOnError "$@"
    fi
    _md_total_devices=$(( $_num_local_ranks * $_devices_per_mdset ))
    if [ $_md_total_devices -gt $_ri_num_devices ] &&  [ $_local_rank_num == 0 ] ; then
@@ -507,7 +511,7 @@ _gfxid=${_ss_gfxid[$_device_num]}
 _node_cus=$(( $_ri_num_devices * ${_ss_cucount[$_device_num]} ))
 if [ $_num_local_ranks -gt $_node_cus ] ; then
    >&2 echo "ERROR: Not enough CUs ($_node_cus) for $_num_local_ranks ranks "
-   exit 1
+   execOnError "$@"
 fi
 
 _utilized_CUs_per_device=$_available_CUs_per_device
