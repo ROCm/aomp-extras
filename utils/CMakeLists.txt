@@ -41,7 +41,7 @@ else()
   message("  ERROR:  Could not find an AOMP version of LLVM.")
   message("          You must build AOMP before building AOMP utils")
   message("")
-  error(" Could not find an AOMP version of LLVM.")
+  message(FATAL_ERROR " Could not find an AOMP version of LLVM.")
 endif()
 
 set(AOMP_DIR_FOUND ${LLVM_DIR})
@@ -133,6 +133,12 @@ install(PROGRAMS
    ${CMAKE_CURRENT_BINARY_DIR}/kokkos_build.sh
    ${CMAKE_CURRENT_BINARY_DIR}/aompversion
    ${CMAKE_CURRENT_SOURCE_DIR}/bin/blt.patch
-   ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
-   ${CMAKE_CURRENT_BINARY_DIR}/modulefile
    DESTINATION "${DEVEL_PACKAGE}${CMAKE_INSTALL_BINDIR}")
+
+install(FILES
+   ${CMAKE_CURRENT_SOURCE_DIR}/bin/raja.patch
+   DESTINATION "${DEVEL_PACKAGE}${CMAKE_INSTALL_BINDIR}")
+
+install(FILES
+   ${CMAKE_CURRENT_BINARY_DIR}/modulefile
+   DESTINATION "${DEVEL_PACKAGE}${CMAKE_INSTALL_DATADIR}")
